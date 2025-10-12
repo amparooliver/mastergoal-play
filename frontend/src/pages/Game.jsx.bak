@@ -61,14 +61,12 @@ const Game = ({ gameId, initialState }) => {
     }
   }, []);
 
-  const API_BASE = import.meta.env.VITE_API_URL || '';
-
-  // Fetch game state
+  const API_BASE = import.meta.env.VITE_API_URL || \"\";`n`n  // Fetch game state
   const fetchGameState = async () => {
     const gid = resolvedGameId || gameId;
     if (!gid) return;
     try {
-      const response = await fetch(`${API_BASE}/api/game/${gid}/state`);
+      const response = await fetch(`/api/game/${gid}/state`);
       const data = await response.json();
       if (data.success) setGameState(data.gameState);
     } catch (e) {
@@ -140,7 +138,7 @@ const Game = ({ gameId, initialState }) => {
     if (!gid) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/game/${gid}/move`, {
+      const response = await fetch(`/api/game/${gid}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moveType: move.type, fromPos: move.from, toPos: move.to })
@@ -171,7 +169,7 @@ const Game = ({ gameId, initialState }) => {
     const gid = resolvedGameId || gameId;
     if (!gid) return;
     try {
-      const response = await fetch(`${API_BASE}/api/game/${gid}/restart`, { method: 'POST' });
+      const response = await fetch(`/api/game/${gid}/restart`, { method: 'POST' });
       const data = await response.json();
       if (data.success) {
         setGameState(data.gameState);
@@ -550,5 +548,6 @@ const Game = ({ gameId, initialState }) => {
 };
 
 export default Game;
+
 
 
