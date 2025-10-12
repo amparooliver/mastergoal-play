@@ -1,11 +1,13 @@
 // src/components/Navigation.jsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useI18n } from '../context/i18n';
 
 const Navigation = () => {
   const location = useLocation();
   const isInGame = location.pathname === '/game';
-  
+  const { lang, setLang, t } = useI18n();
+
   if (isInGame) return null;
   
   return (
@@ -19,14 +21,21 @@ const Navigation = () => {
           </div>
           <div className="flex items-center space-x-8">
             <Link to="/how-to-play" className="text-mg-cream hover:text-mg-sand transition">
-              How to Play
+              {t('howToPlay')}
             </Link>
             <Link to="/about" className="text-mg-cream hover:text-mg-sand transition">
-              About
+              {t('about')}
             </Link>
             <Link to="/config" className="bg-mg-sand text-mg-brown px-4 py-2 rounded-lg font-semibold hover:brightness-110 transition">
-              Play Now
+              {t('playNow')}
             </Link>
+            <button
+              aria-label="language"
+              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+              className="ml-4 px-3 py-1 rounded border border-mg-cream/30 text-mg-cream hover:bg-white/10"
+            >
+              {lang.toUpperCase()}
+            </button>
           </div>
         </div>
       </div>

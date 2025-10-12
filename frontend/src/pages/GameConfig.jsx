@@ -59,7 +59,7 @@ const GameConfig = ({ onStartGame }) => {
         <div className="max-w-2xl mx-auto">
           <h1 className="text-5xl font-extrabold text-mg-cream mb-8 text-center">Game Configuration</h1>
 
-          <div className="bg-mg-brown/60 backdrop-blur rounded-lg p-8 border border-mg-cream/20">
+          <div className="bg-mg-cream text-mg-brown rounded-lg p-8 border border-mg-cream/20">
             {/* Level Selection */}
             <div className="mb-8">
               <label className="text-mg-cream text-xl font-bold mb-4 block">Game Level</label>
@@ -69,7 +69,7 @@ const GameConfig = ({ onStartGame }) => {
                     key={level}
                     onClick={() => setConfig({ ...config, level })}
                     className={`p-4 rounded-lg transition ${
-                      config.level === level ? 'bg-mg-sand text-mg-brown' : 'bg-white/10 text-mg-cream hover:bg-white/20'
+                      config.level === level ? 'bg-mg-green-1 text-mg-cream' : 'bg-white/40 text-mg-brown hover:bg-white/60'
                     }`}
                   >
                     <div className="text-2xl font-bold">Level {level}</div>
@@ -81,14 +81,14 @@ const GameConfig = ({ onStartGame }) => {
 
             {/* Difficulty Selection */}
             <div className="mb-8">
-              <label className="text-mg-cream text-xl font-bold mb-4 block">Difficulty</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Difficulty</label>
               <div className="grid grid-cols-3 gap-4">
                 {['easy', 'medium', 'hard'].map(diff => (
                   <button
                     key={diff}
                     onClick={() => setConfig({ ...config, difficulty: diff })}
                     className={`p-4 rounded-lg transition capitalize ${
-                      config.difficulty === diff ? 'bg-mg-sand text-mg-brown' : 'bg-white/10 text-mg-cream hover:bg-white/20'
+                      config.difficulty === diff ? 'bg-mg-green-1 text-mg-cream' : 'bg-white/40 text-mg-brown hover:bg-white/60'
                     }`}
                   >
                     {diff}
@@ -99,12 +99,12 @@ const GameConfig = ({ onStartGame }) => {
 
             {/* Team Side Selection */}
             <div className="mb-8">
-              <label className="text-mg-cream text-xl font-bold mb-4 block">Your Team</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Your Team</label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setConfig({ ...config, playerColor: 'LEFT' })}
                   className={`p-4 rounded-lg transition ${
-                    config.playerColor === 'LEFT' ? 'bg-mg-sand text-mg-brown' : 'bg-white/10 text-mg-cream hover:bg-white/20'
+                    config.playerColor === 'LEFT' ? 'bg-mg-green-1 text-mg-cream' : 'bg-white/40 text-mg-brown hover:bg-white/60'
                   }`}
                 >
                   <div className="font-bold">Left (You start)</div>
@@ -113,7 +113,7 @@ const GameConfig = ({ onStartGame }) => {
                 <button
                   onClick={() => setConfig({ ...config, playerColor: 'RIGHT' })}
                   className={`p-4 rounded-lg transition ${
-                    config.playerColor === 'RIGHT' ? 'bg-mg-sand text-mg-brown' : 'bg-white/10 text-mg-cream hover:bg-white/20'
+                    config.playerColor === 'RIGHT' ? 'bg-mg-green-1 text-mg-cream' : 'bg-white/40 text-mg-brown hover:bg-white/60'
                   }`}
                 >
                   <div className="font-bold">Right (AI starts)</div>
@@ -124,7 +124,7 @@ const GameConfig = ({ onStartGame }) => {
 
             {/* Chip color selection */}
             <div className="mb-8">
-              <label className="text-mg-cream text-xl font-bold mb-4 block">Your Chip Color</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Your Chip Color</label>
               <div className="flex flex-wrap gap-3">
                 {CHIP_COLORS.map((color) => (
                   <button
@@ -138,25 +138,25 @@ const GameConfig = ({ onStartGame }) => {
                   />
                 ))}
               </div>
-              <div className="text-mg-cream/80 text-xs mt-2">The AI chip color will differ from yours automatically.</div>
+              <div className="text-mg-brown/80 text-xs mt-2">The AI chip color will differ from yours automatically.</div>
             </div>
 
             {/* Timer Option */}
             <div className="mb-8">
-              <label className="text-mg-cream text-xl font-bold mb-4 block">Timer (Optional)</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Timer (Optional)</label>
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setConfig({ ...config, timerEnabled: !config.timerEnabled })}
-                  className={`w-16 h-8 rounded-full transition ${config.timerEnabled ? 'bg-mg-sand' : 'bg-white/20'}`}
+                  className={`w-16 h-8 rounded-full transition ${config.timerEnabled ? 'bg-mg-green-1' : 'bg-white/40'}`}
                 >
                   <div className={`w-7 h-7 bg-white rounded-full transition transform ${config.timerEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
                 </button>
-                <span className="text-mg-cream">{config.timerEnabled ? 'Enabled' : 'Disabled'}</span>
+                <span className="text-mg-brown">{config.timerEnabled ? 'Enabled' : 'Disabled'}</span>
                 {config.timerEnabled && (
                   <select
                     value={config.timerMinutes}
                     onChange={(e) => setConfig({ ...config, timerMinutes: parseInt(e.target.value) })}
-                    className="bg-white/10 text-mg-cream px-3 py-1 rounded border border-mg-cream/20"
+                    className="bg-white/40 text-mg-brown px-3 py-1 rounded border border-mg-cream/20"
                   >
                     <option value="5">5 minutes</option>
                     <option value="10">10 minutes</option>
@@ -170,7 +170,7 @@ const GameConfig = ({ onStartGame }) => {
             {/* Start Button */}
             <button
               onClick={handleStartGame}
-              className="w-full bg-mg-sand text-mg-brown text-2xl font-bold py-4 rounded-lg hover:brightness-110 transition transform hover:scale-105"
+              className="w-full bg-mg-green-1 text-mg-cream text-2xl font-bold py-4 rounded-lg hover:brightness-110 transition transform hover:scale-105"
             >
               Start Game
             </button>
@@ -182,4 +182,3 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
-

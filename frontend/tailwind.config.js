@@ -10,8 +10,8 @@ export default {
         // Mastergoal palette
         'mg-brown': '#1C0F01',
         'mg-green-1': '#255935',
-        'mg-green-2': '#436836',
-        'mg-green-3': '#48763B',
+        'mg-green-2': '#48763B',
+        'mg-green-3': '#436836',
         'mg-sage': '#A4A77E',
         'mg-sand': '#E6DCB7',
         'mg-cream': '#F5EFD5',

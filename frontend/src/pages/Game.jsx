@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
+import Modal from '../components/Modal.jsx';
 
 const Game = ({ gameId, initialState }) => {
   const [gameState, setGameState] = useState(initialState?.gameState || null);
@@ -12,6 +13,7 @@ const Game = ({ gameId, initialState }) => {
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
   const navigate = useNavigate();
+  const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
 
   const ROWS = 15;
   const COLS = 11;
@@ -79,12 +81,25 @@ const Game = ({ gameId, initialState }) => {
 
   // Timer: simple per-turn countdown UI (client-side only)
   useEffect(() => {
-    if (!timerEnabled || gameEnded) return;
+    if (!timerEnabled || gameEnded || activeModal) return;
     setSecondsLeft(timerMinutes * 60);
     const id = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentTeam, timerEnabled, gameEnded]);
+  }, [gameState?.currentTeam, timerEnabled, gameEnded, activeModal]);
+
+  // When timer hits zero on player's turn, auto-play a random legal move
+  useEffect(() => {
+    const humanTeam = sessionConfig?.playerColor;
+    if (!timerEnabled || secondsLeft > 0 || gameEnded || isLoading) return;
+    if (humanTeam && gameState?.currentTeam === humanTeam) {
+      const legal = gameState?.legalMoves || [];
+      if (legal.length > 0) {
+        const random = legal[Math.floor(Math.random() * legal.length)];
+        executeMove(random);
+      }
+    }
+  }, [secondsLeft]);
 
   // Handle cell click
   const handleCellClick = async (row, col) => {
@@ -170,7 +185,7 @@ const Game = ({ gameId, initialState }) => {
 
   // UI helpers
   const ScorePill = () => (
-    <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-10">
+    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
       <div className="flex items-center gap-3 bg-mg-brown/90 text-mg-cream px-4 py-1 rounded-full shadow">
         <span className="text-xs tracking-wide">YOU</span>
         <span className="inline-flex items-center bg-mg-sand text-mg-brown font-bold px-3 py-0.5 rounded">
@@ -184,11 +199,10 @@ const Game = ({ gameId, initialState }) => {
   const SideToolbar = () => (
     <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[-72px]">
       <div className="w-14 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-5 shadow-lg">
-        <button onClick={() => navigate('/')} title="Home" className="hover:text-mg-sand">🏠</button>
-        <button disabled title="Pause" className="opacity-60 cursor-not-allowed">⏸️</button>
-        <button onClick={() => navigate('/config')} title="New" className="hover:text-mg-sand">🕹️</button>
-        <button onClick={() => alert('Select a chip or the ball; use highlighted targets.')} title="Help" className="hover:text-mg-sand">❓</button>
-        <button onClick={() => navigate('/about')} title="About" className="hover:text-mg-sand">⚙️</button>
+        <button onClick={() => setActiveModal('home')} title="Home" className="hover:text-mg-sand">🏠</button>
+        <button onClick={() => setActiveModal('help')} title="Help" className="hover:text-mg-sand">❓</button>
+        <button onClick={() => setActiveModal('config')} title="Settings" className="hover:text-mg-sand">⚙️</button>
+        <button onClick={() => setActiveModal('about')} title="About" className="hover:text-mg-sand">ℹ️</button>
       </div>
     </div>
   );
@@ -204,6 +218,22 @@ const Game = ({ gameId, initialState }) => {
     )
   );
 
+  // Board chrome: side toolbar and field overlays
+  const FieldOverlay = () => (
+    <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <rect x="2" y="8.5" width="96" height="83" rx="3" ry="3" fill="none" stroke="#F5EFD5" strokeWidth="1.5" />
+      <circle cx="5.5" cy="12" r="1.2" fill="#F5EFD5" />
+      <circle cx="94.5" cy="12" r="1.2" fill="#F5EFD5" />
+      <circle cx="5.5" cy="88" r="1.2" fill="#F5EFD5" />
+      <circle cx="94.5" cy="88" r="1.2" fill="#F5EFD5" />
+      <rect x="8" y="18" width="18" height="64" fill="none" stroke="#F5EFD5" strokeWidth="1.5" />
+      <rect x="8" y="32" width="10" height="36" fill="none" stroke="#F5EFD5" strokeWidth="1.5" />
+      <rect x="74" y="18" width="18" height="64" fill="none" stroke="#F5EFD5" strokeWidth="1.5" />
+      <rect x="82" y="32" width="10" height="36" fill="none" stroke="#F5EFD5" strokeWidth="1.5" />
+    </svg>
+  );
+
+
   // Render single cell
   const renderCell = (dRow, dCol) => {
     // Map display coords to model coords when landscape (transpose)
@@ -212,7 +242,7 @@ const Game = ({ gameId, initialState }) => {
     const isGoalLeft = row === 0 && col >= 3 && col <= 7;
     const isGoalRight = row === 14 && col >= 3 && col <= 7;
     const isGoal = isGoalLeft || isGoalRight;
-    const isCorner = (row === 0 || row === 14) && (col < 3 || col > 7);
+    const isOutside = (row === 0 || row === 14) && (col < 3 || col > 7);
 
     const player = gameState?.players?.find(p => p.position.row === row && p.position.col === col);
     const hasBall = gameState?.ball?.row === row && gameState?.ball?.col === col;
@@ -222,28 +252,128 @@ const Game = ({ gameId, initialState }) => {
     const isAiMoveFrom = lastAiMove && lastAiMove.from.row === row && lastAiMove.from.col === col;
     const isAiMoveTo = lastAiMove && lastAiMove.to.row === row && lastAiMove.to.col === col;
 
-    let cellClass = 'w-12 h-12 border border-mg-green-1 relative flex items-center justify-center ';
-    if (isCorner) {
-      cellClass += 'bg-mg-brown/80 cursor-not-allowed ';
+    let cellClass = 'w-12 h-12 relative flex items-center justify-center ';
+    if (isOutside) {
+      cellClass += 'bg-mg-brown cursor-not-allowed ';
     } else if (isGoal) {
-      cellClass += 'bg-mg-green-3 ';
+      cellClass += 'bg-mg-green-2 relative ';
     } else {
       const isDark = (row + col) % 2 === 0;
       cellClass += isDark ? 'bg-mg-green-2 ' : 'bg-mg-green-3 ';
     }
-    if (isLegalMove && !isCorner) cellClass += 'ring-4 ring-mg-sand cursor-pointer hover:brightness-110 ';
+   // Cream border around playable field edges - apply based on display coordinates
+    if (!isLandscape) {
+      // Portrait mode: normal orientation
+      if (row === 1) cellClass += ' border-t-4 border-mg-cream ';
+      if (row === 13) cellClass += ' border-b-4 border-mg-cream ';
+      if (col === 0 && row >= 1 && row <= 13) cellClass += ' border-l-4 border-mg-cream ';
+      if (col === 10 && row >= 1 && row <= 13) cellClass += ' border-r-4 border-mg-cream ';
+      if (row === 1 && col === 0) cellClass += ' rounded-tl-xl ';
+      if (row === 1 && col === 10) cellClass += ' rounded-tr-xl ';
+      if (row === 13 && col === 0) cellClass += ' rounded-bl-xl ';
+      if (row === 13 && col === 10) cellClass += ' rounded-br-xl ';
+      if (row === 4 && col >= 1 && col <= 9) cellClass += ' border-b-4 border-mg-cream ';
+      if (row === 2 && col >= 2 && col <= 8) cellClass += ' border-b-4 border-mg-cream ';
+        if (col === 0 && row >= 1 && row <= 4) cellClass += ' border-r-4 border-mg-cream ';
+        if (col === 9 && row >= 1 && row <= 4) cellClass += ' border-r-4 border-mg-cream ';
+        if (col === 0 && row >= 10 && row <= 13) cellClass += ' border-r-4 border-mg-cream ';
+        if (col === 9 && row >= 10 && row <= 13) cellClass += ' border-r-4 border-mg-cream ';
+        if (row === 12 && col >= 2 && col <= 8) cellClass += ' border-t-4 border-mg-cream ';
+        if (row === 10 && col >= 1 && col <= 9) cellClass += ' border-t-4 border-mg-cream ';
+        if (col == 1 && row >= 1 && row <= 2) cellClass += ' border-r-4 border-mg-cream ';
+        if (col == 8 && row >= 1 && row <= 2) cellClass += ' border-r-4 border-mg-cream ';
+        if (col == 1 && row >= 12 && row <= 13) cellClass += ' border-r-4 border-mg-cream ';
+        if (col == 8 && row >= 12 && row <= 13) cellClass += ' border-r-4 border-mg-cream ';
+
+    } else {
+      // Landscape mode: transposed, so apply borders based on display coords
+        if (dRow === 0 && dCol >= 1 && dCol <= 13) cellClass += ' border-t-4 border-mg-cream ';
+        if (dRow === 10 && dCol >= 1 && dCol <= 13) cellClass += ' border-b-4 border-mg-cream ';
+        if (dCol === 1) cellClass += ' border-l-4 border-mg-cream ';
+        if (dCol === 13) cellClass += ' border-r-4 border-mg-cream ';
+        if (dRow === 0 && dCol === 1) cellClass += ' rounded-tl-xl ';
+        if (dRow === 0 && dCol === 13) cellClass += ' rounded-tr-xl ';
+        if (dRow === 10 && dCol === 1) cellClass += ' rounded-bl-xl ';
+        if (dRow === 10 && dCol === 13) cellClass += ' rounded-br-xl ';
+        if (dRow === 1 && dCol >= 1 && dCol <= 4) cellClass += ' border-t-4 border-mg-cream ';
+        if (dRow === 10 && dCol >= 1 && dCol <= 4) cellClass += ' border-t-4 border-mg-cream ';
+        if (dCol === 4 && dRow >= 1 && dRow <= 9) cellClass += ' border-r-4 border-mg-cream ';
+        if (dRow === 1 && dCol >= 10 && dCol <= 13) cellClass += ' border-t-4 border-mg-cream ';
+        if (dRow === 10 && dCol >= 10 && dCol <= 13) cellClass += ' border-t-4 border-mg-cream ';
+        if (dCol === 10 && dRow >= 1 && dRow <= 9) cellClass += ' border-l-4 border-mg-cream ';
+        if (dRow === 2 && dCol >= 1 && dCol <= 2) cellClass += ' border-t-4 border-mg-cream ';
+        if (dRow === 8 && dCol >= 1 && dCol <= 2) cellClass += ' border-b-4 border-mg-cream ';
+        if (dCol === 2 && dRow >= 2 && dRow <= 8) cellClass += ' border-r-4 border-mg-cream ';
+        if (dRow === 2 && dCol >= 12 && dCol <= 13) cellClass += ' border-t-4 border-mg-cream ';
+        if (dRow === 8 && dCol >= 12 && dCol <= 13) cellClass += ' border-b-4 border-mg-cream ';
+        if (dCol === 11 && dRow >= 2 && dRow <= 8) cellClass += ' border-r-4 border-mg-cream ';
+
+    }
+
+    if (isLegalMove && !isOutside) cellClass += 'ring-4 ring-mg-sand cursor-pointer hover:brightness-110 ';
     if (isSelected) cellClass += 'ring-4 ring-blue-400 ';
     if (isAiMoveFrom) cellClass += 'ring-4 ring-purple-400 ';
     if (isAiMoveTo) cellClass += 'ring-4 ring-purple-600 animate-pulse ';
 
     return (
       <div key={`${dRow}-${dCol}`} className={cellClass} onClick={() => handleCellClick(row, col)}>
+        {isGoal && (
+          <>
+            <div className="absolute inset-0 pointer-events-none opacity-40" 
+                 style={{
+                   backgroundImage: `
+                     repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.6) 8px, rgba(255,255,255,0.6) 8px),
+                     repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,255,255,0.6) 8px, rgba(255,255,255,0.6) 8px)
+                   `
+                 }}
+            />
+            {/* Goal box borders - adjusted for orientation */}
+            {!isLandscape ? (
+              // Vertical/Portrait mode
+              <>
+                {isGoalLeft && col === 3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+                {isGoalLeft && col === 7 && <div className="absolute right-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+                {isGoalLeft && row === 0 && col >= 3 && col <= 7 && <div className="absolute top-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+                
+                {isGoalRight && col === 3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+                {isGoalRight && col === 7 && <div className="absolute right-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+                {isGoalRight && row === 14 && col >= 3 && col <= 7 && <div className="absolute bottom-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+              </>
+            ) : (
+              // Landscape mode (transposed)
+              <>
+                {isGoalLeft && col === 3 && <div className="absolute top-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+                {isGoalLeft && col === 7 && <div className="absolute bottom-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+                {isGoalLeft && row === 0 && col >= 3 && col <= 7 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+                
+                {isGoalRight && col === 3 && <div className="absolute top-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+                {isGoalRight && col === 7 && <div className="absolute bottom-0 left-0 right-0 h-1 bg-mg-cream pointer-events-none" />}
+                {isGoalRight && row === 14 && col >= 3 && col <= 7 && <div className="absolute right-0 top-0 bottom-0 w-1 bg-mg-cream pointer-events-none" />}
+              </>
+            )}
+          </>
+        )}
+        
         {player && (
           <div className="pointer-events-none">
-            <ChipIcon color={TEAM_COLORS[player.team]} width={28} height={28} />
+            <ChipIcon color={TEAM_COLORS[player.team]} width={34} height={34} />
           </div>
         )}
-        {hasBall && <img src="/assets/bw-ball.svg" alt="ball" className="w-5 h-5 drop-shadow" />}
+        {hasBall && <img src="/assets/bw-ball.svg" alt="ball" className="w-7 h-7 drop-shadow" />}
+        {
+          (() => {
+            const team = gameState?.currentTeam;
+            if (!team || gameState?.level < 3) return null;
+            const isLeft = team === 'LEFT';
+            let special = false;
+            if (isLeft) {
+              if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) special = true;
+            } else {
+              if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) special = true;
+            }
+            return special ? <span className="absolute w-2 h-2 rounded-full bg-mg-cream" /> : null;
+          })()
+        }
       </div>
     );
   };
@@ -264,7 +394,7 @@ const Game = ({ gameId, initialState }) => {
           <div className="relative bg-mg-brown rounded-3xl p-6 shadow-2xl">
             <ScorePill />
             <TimerWidget />
-            <div className="bg-mg-green-2 rounded-xl p-4 border-4 border-mg-cream">
+            <div className="bg-mg-brown rounded-xl p-4 relative">
               <div className="grid" style={{ gridTemplateRows: `repeat(${isLandscape ? 11 : 15}, 3rem)`, gridTemplateColumns: `repeat(${isLandscape ? 15 : 11}, 3rem)` }}>
                 {Array.from({ length: isLandscape ? 11 : 15 }).map((_, r) => (
                   Array.from({ length: isLandscape ? 15 : 11 }).map((_, c) => (
@@ -273,20 +403,69 @@ const Game = ({ gameId, initialState }) => {
                 ))}
               </div>
             </div>
-
-            <div className="mt-4 flex justify-between items-center text-mg-cream">
-              <div className="flex items-center gap-4">
-                <button onClick={restartGame} className="bg-mg-sand text-mg-brown px-4 py-2 rounded-lg font-semibold hover:brightness-110 transition">Restart</button>
-                <button onClick={() => navigate('/')} className="bg-white/10 px-4 py-2 rounded-lg border border-white/20 hover:bg-white/20 transition">Home</button>
-              </div>
-              <div>
-                <span className="font-bold">Turn: </span>
-                <span className={gameState?.currentTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage'}>{gameState?.currentTeam}</span>
-              </div>
-            </div>
+            <div className="mt-3 text-center text-mg-cream"><span className="font-bold">Turn: </span><span className={gameState?.currentTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage'}>{gameState?.currentTeam}</span></div>
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {activeModal === 'home' && (
+        <Modal title="Leave Game?" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>Cancel</button>,
+            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => navigate('/')}>Leave</button>
+          ]}
+        >
+          <p>You're about to leave the game. Are you sure?</p>
+        </Modal>
+      )}
+      {activeModal === 'help' && (
+        <Modal title="Help" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Close</button>
+          ]}
+        >
+          <p>Select a chip or the ball; click highlighted cells to move or kick. Forced kicks apply when adjacent and ball is not neutral.</p>
+        </Modal>
+      )}
+      {activeModal === 'about' && (
+        <Modal title="About" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Close</button>
+          ]}
+        >
+          <p>This thesis project showcases AI agents (Minimax, MCTS, Heuristics) playing Mastergoal.</p>
+        </Modal>
+      )}
+      {activeModal === 'config' && (
+        <Modal title="Game Settings" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Save</button>
+          ]}
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="font-semibold mb-1">Timer</div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" defaultChecked={timerEnabled} onChange={(e) => {
+                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+                    saved.timerEnabled = e.target.checked; sessionStorage.setItem('gameSession', JSON.stringify(saved));
+                  }} />
+                  <span>Enabled</span>
+                </label>
+                <select defaultValue={timerMinutes} className="bg-white/40 px-2 py-1 rounded"
+                  onChange={(e) => {
+                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+                    saved.timerMinutes = parseInt(e.target.value); sessionStorage.setItem('gameSession', JSON.stringify(saved));
+                  }}>
+                  {[5,10,15,20].map(m => (<option key={m} value={m}>{m} min</option>))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Game Over Modal */}
       {gameEnded && (
@@ -318,3 +497,7 @@ const Game = ({ gameId, initialState }) => {
 };
 
 export default Game;
+
+
+
+
