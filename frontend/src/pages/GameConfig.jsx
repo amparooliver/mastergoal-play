@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 const CHIP_COLORS = ['#F5EFD5', '#F18F01', '#A40606', '#202C59', '#120F0F'];
 
@@ -18,21 +19,15 @@ const GameConfig = ({ onStartGame }) => {
 
   const handleStartGame = async () => {
     try {
-      const response = await fetch('/api/game/new', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          level: config.level,
-          difficulty: config.difficulty,
-          playerColor: config.playerColor,
-          timerEnabled: config.timerEnabled,
-          timerMinutes: config.timerMinutes,
-          maxTurnsEnabled: !!config.maxTurnsEnabled,
-          maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
-        }),
+      const data = await api.createGame({
+        level: config.level,
+        difficulty: config.difficulty,
+        playerColor: config.playerColor,
+        timerEnabled: config.timerEnabled,
+        timerMinutes: config.timerMinutes,
+        maxTurnsEnabled: !!config.maxTurnsEnabled,
+        maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
       });
-
-      const data = await response.json();
       if (data.success) {
         const playerTeam = config.playerColor;
         const aiTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
@@ -218,4 +213,5 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
+
 
