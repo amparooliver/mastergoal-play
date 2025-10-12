@@ -436,7 +436,25 @@ const Game = ({ gameId, initialState }) => {
                 ))}
               </div>
             </div>
-            <div className="mt-3 text-center text-mg-cream"><span className="font-bold">Turn: </span><span className={gameState?.currentTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage'}>{gameState?.currentTeam}</span></div>
+            <div className="mt-3 text-center text-mg-cream">
+              <span className="font-bold">Turn: </span>
+              <span className={gameState?.currentTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage'}>
+                {gameState?.currentTeam}
+              </span>
+              {(() => {
+                let enabled = false;
+                let maxTurns = 0;
+                try {
+                  const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+                  enabled = !!saved?.maxTurnsEnabled;
+                  maxTurns = saved?.maxTurns || 0;
+                } catch {}
+                const count = gameState?.turnCount ?? 0;
+                return enabled && maxTurns ? (
+                  <span className="ml-2 text-mg-cream/80">{count}/{maxTurns}</span>
+                ) : null;
+              })()}
+            </div>
           </div>
         </div>
       </div>

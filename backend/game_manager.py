@@ -97,15 +97,31 @@ class GameManager:
         except Exception as e:
             return False, f"Error executing move: {str(e)}"
     
-    def check_game_status(self, game):
-        """Check if game has ended and who won"""
+    def check_game_status(self, game, win_goals: int | None = None,
+                           max_turns_enabled: bool = False, max_turns: int | None = None):
+        """Check if game has ended and who won.
+
+        If overrides are provided, they take precedence over the game's
+        internal thresholds.
+        """
+        # Apply override goals if provided
+        if win_goals is not None:
+            if game.LEFT_goals >= win_goals:
+                return {'ended': True, 'winner': 'LEFT'}
+            if game.RIGHT_goals >= win_goals:
+                return {'ended': True, 'winner': 'RIGHT'}
+
+        # Apply override max turns if enabled
+        if max_turns_enabled and max_turns is not None and game.turn_count >= max_turns:
+            return {'ended': True, 'winner': 'DRAW'}
+
+        # Fall back to game's internal logic
         result = game.is_game_over()
-        
-        if result == 1:  # LEFT won
+        if result == 1:
             return {'ended': True, 'winner': 'LEFT'}
-        elif result == -1:  # RIGHT won
+        elif result == -1:
             return {'ended': True, 'winner': 'RIGHT'}
-        elif result == 0.1:  # Draw
+        elif result == 0.1:
             return {'ended': True, 'winner': 'DRAW'}
         else:
             return {'ended': False, 'winner': None}

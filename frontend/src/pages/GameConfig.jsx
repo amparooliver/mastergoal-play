@@ -12,6 +12,8 @@ const GameConfig = ({ onStartGame }) => {
     timerEnabled: false,
     timerMinutes: 10,
     chipColor: '#F5EFD5',
+    maxTurnsEnabled: false,
+    maxTurns: 60,
   });
 
   const handleStartGame = async () => {
@@ -25,6 +27,8 @@ const GameConfig = ({ onStartGame }) => {
           playerColor: config.playerColor,
           timerEnabled: config.timerEnabled,
           timerMinutes: config.timerMinutes,
+          maxTurnsEnabled: !!config.maxTurnsEnabled,
+          maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
         }),
       });
 
@@ -38,6 +42,8 @@ const GameConfig = ({ onStartGame }) => {
           ...data,
           timerEnabled: config.timerEnabled,
           timerMinutes: config.timerMinutes,
+          maxTurnsEnabled: !!config.maxTurnsEnabled,
+          maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
           chipColors: {
             [playerTeam]: config.chipColor,
             [aiTeam]: aiChip,
@@ -141,31 +147,61 @@ const GameConfig = ({ onStartGame }) => {
               <div className="text-mg-brown/80 text-xs mt-2">The AI chip color will differ from yours automatically.</div>
             </div>
 
-            {/* Timer Option */}
-            <div className="mb-8">
-              <label className="text-mg-brown text-xl font-bold mb-4 block">Timer (Optional)</label>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setConfig({ ...config, timerEnabled: !config.timerEnabled })}
-                  className={`w-16 h-8 rounded-full transition ${config.timerEnabled ? 'bg-mg-green-1' : 'bg-white/40'}`}
-                >
-                  <div className={`w-7 h-7 bg-white rounded-full transition transform ${config.timerEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
-                </button>
-                <span className="text-mg-brown">{config.timerEnabled ? 'Enabled' : 'Disabled'}</span>
-                {config.timerEnabled && (
-                  <select
-                    value={config.timerMinutes}
-                    onChange={(e) => setConfig({ ...config, timerMinutes: parseInt(e.target.value) })}
-                    className="bg-white/40 text-mg-brown px-3 py-1 rounded border border-mg-cream/20"
-                  >
-                    <option value="5">5 minutes</option>
-                    <option value="10">10 minutes</option>
-                    <option value="15">15 minutes</option>
-                    <option value="20">20 minutes</option>
-                  </select>
-                )}
+            {/* Advanced Configurations */}
+            <details className="mb-8">
+              <summary className="cursor-pointer text-mg-brown text-xl font-bold">Advanced Configurations</summary>
+              <div className="mt-4 space-y-6">
+                {/* Timer Option */}
+                <div>
+                  <label className="text-mg-brown text-lg font-bold mb-2 block">Timer</label>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => setConfig({ ...config, timerEnabled: !config.timerEnabled })}
+                      className={`w-16 h-8 rounded-full transition ${config.timerEnabled ? 'bg-mg-green-1' : 'bg-white/40'}`}
+                    >
+                      <div className={`w-7 h-7 bg-white rounded-full transition transform ${config.timerEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
+                    </button>
+                    <span className="text-mg-brown">{config.timerEnabled ? 'Enabled' : 'Disabled'}</span>
+                    {config.timerEnabled && (
+                      <select
+                        value={config.timerMinutes}
+                        onChange={(e) => setConfig({ ...config, timerMinutes: parseInt(e.target.value) })}
+                        className="bg-white/40 text-mg-brown px-3 py-1 rounded border border-mg-cream/20"
+                      >
+                        <option value="5">5 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="15">15 minutes</option>
+                        <option value="20">20 minutes</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                {/* Max Turns */}
+                <div>
+                  <label className="text-mg-brown text-lg font-bold mb-2 block">Max Turns</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setConfig({ ...config, maxTurnsEnabled: !config.maxTurnsEnabled })}
+                      className={`w-16 h-8 rounded-full transition ${config.maxTurnsEnabled ? 'bg-mg-green-1' : 'bg-white/40'}`}
+                    >
+                      <div className={`w-7 h-7 bg-white rounded-full transition transform ${config.maxTurnsEnabled ? 'translate-x-8' : 'translate-x-0.5'}`}></div>
+                    </button>
+                    <input
+                      type="number"
+                      min={10}
+                      max={300}
+                      step={5}
+                      value={config.maxTurns}
+                      onChange={(e) => setConfig({ ...config, maxTurns: parseInt(e.target.value || '0') })}
+                      disabled={!config.maxTurnsEnabled}
+                      className="w-28 bg-white/40 text-mg-brown px-3 py-2 rounded border border-mg-cream/20 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-mg-brown/80">When enabled, game draws at this turn.</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
 
             {/* Start Button */}
             <button
@@ -182,3 +218,4 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
+

@@ -62,6 +62,8 @@ def new_game():
         player_color = data.get('playerColor', 'LEFT')
         timer_enabled = data.get('timerEnabled', False)
         timer_minutes = data.get('timerMinutes', 10)
+        max_turns_enabled = data.get('maxTurnsEnabled', False)
+        max_turns = data.get('maxTurns')
         
         if level not in [1, 2, 3]:
             return jsonify({'error': 'Invalid level'}), 400
@@ -92,6 +94,9 @@ def new_game():
             'difficulty': difficulty,
             'timer_enabled': timer_enabled,
             'timer_minutes': timer_minutes,
+            'max_turns_enabled': bool(max_turns_enabled),
+            'max_turns': int(max_turns) if (max_turns_enabled and isinstance(max_turns, (int, float))) else None,
+            'win_goals': 2,  # default: play to 2 goals unless overridden in future
             'start_time': datetime.utcnow().isoformat(),
             'move_history': [],
             'status': 'active'
@@ -105,7 +110,9 @@ def new_game():
             'gameId': game_id,
             'gameState': game_state,
             'playerColor': player_color,
-            'aiColor': ai_color
+            'aiColor': ai_color,
+            'maxTurnsEnabled': bool(max_turns_enabled),
+            'maxTurns': active_games[game_id]['max_turns']
         })
         
     except Exception as e:
@@ -174,8 +181,16 @@ def make_move(game_id):
             'timestamp': datetime.utcnow().isoformat()
         })
         
-        # Check game end
-        game_status = game_manager.check_game_status(game)
+        # Check game end with overrides
+        win_goals = session.get('win_goals')
+        max_turns_enabled = session.get('max_turns_enabled', False)
+        max_turns = session.get('max_turns')
+        game_status = game_manager.check_game_status(
+            game,
+            win_goals=win_goals,
+            max_turns_enabled=max_turns_enabled,
+            max_turns=max_turns
+        )
         if game_status['ended']:
             session['status'] = 'completed'
             session['winner'] = game_status['winner']
@@ -212,7 +227,12 @@ def make_move(game_id):
                     'to': {'row': ai_to_pos.row, 'col': ai_to_pos.col},
                     'timestamp': datetime.utcnow().isoformat()
                 })
-                game_status = game_manager.check_game_status(game)
+                game_status = game_manager.check_game_status(
+                    game,
+                    win_goals=win_goals,
+                    max_turns_enabled=max_turns_enabled,
+                    max_turns=max_turns
+                )
                 if game_status['ended']:
                     session['status'] = 'completed'
                     session['winner'] = game_status['winner']
