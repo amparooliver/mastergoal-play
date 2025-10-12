@@ -3,7 +3,7 @@ from player import Player
 from position import Position
 
 # Global constants
-NUM_GOALS = 1 #Number of goals to win
+NUM_GOALS = 2 #Number of goals to win
 NUM_TURNS = 60 #Number of turns to play before a draw
 
 class MastergoalGame:

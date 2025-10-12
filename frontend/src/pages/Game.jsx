@@ -186,24 +186,52 @@ const Game = ({ gameId, initialState }) => {
   // UI helpers
   const ScorePill = () => (
     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
-      <div className="flex items-center gap-3 bg-mg-brown/90 text-mg-cream px-4 py-1 rounded-full shadow">
-        <span className="text-xs tracking-wide">YOU</span>
-        <span className="inline-flex items-center bg-mg-sand text-mg-brown font-bold px-3 py-0.5 rounded">
-          {gameState?.score?.LEFT ?? 0} <span className="mx-1">-</span> {gameState?.score?.RIGHT ?? 0}
+      <div className="flex items-center gap-4 bg-mg-brown/90 text-mg-cream px-4 py-1 rounded-full shadow">
+        <span className="text-lg tracking-wide font-bold">YOU</span>
+        <span className="inline-flex items-center bg-mg-sand text-mg-brown font-bold px-3 py-0.5 rounded text-lg">
+          {gameState?.score?.LEFT ?? 0} <span className="mx-1 text-lg">-</span> {gameState?.score?.RIGHT ?? 0}
         </span>
-        <span className="text-xs tracking-wide">AI</span>
+        <span className="text-lg tracking-wide font-bold">AI</span>
       </div>
     </div>
   );
 
   const SideToolbar = () => (
-    <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[-72px]">
-      <div className="w-14 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-5 shadow-lg">
-        <button onClick={() => setActiveModal('home')} title="Home" className="hover:text-mg-sand">🏠</button>
-        <button onClick={() => setActiveModal('help')} title="Help" className="hover:text-mg-sand">❓</button>
-        <button onClick={() => setActiveModal('config')} title="Settings" className="hover:text-mg-sand">⚙️</button>
-        <button onClick={() => setActiveModal('about')} title="About" className="hover:text-mg-sand">ℹ️</button>
+    <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[180px]">
+      <div className="w-20 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-8 gap-12 shadow-lg">
+        <button onClick={() => setActiveModal('home')} title="Home" className="hover:opacity-90">
+          <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-8 h-8" />
+        </button>
+        <button onClick={() => setActiveModal('pause')} title="Pause" className="hover:opacity-90">
+          <img src="/assets/PauseVerticalMenu.svg" alt="Pause" className="w-8 h-8" />
+        </button>
+        <button onClick={() => setActiveModal('restart')} title="Restart" className="hover:opacity-90">
+          <img src="/assets/RestartVerticalMenu.svg" alt="Restart" className="w-8 h-8" />
+        </button>
+        <button onClick={() => setActiveModal('help')} title="Help" className="hover:opacity-90">
+          <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-8 h-8" />
+        </button>
+        <button onClick={() => setActiveModal('config')} title="Settings" className="hover:opacity-90">
+          <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-8 h-8" />
+        </button>
+
       </div>
+    </div>
+  );
+
+  // Horizontal toolbar for small/vertical screens
+  const TopToolbar = () => (
+    <div className="flex items-center justify-center gap-5 text-mg-cream">
+      <button onClick={() => setActiveModal('home')} title="Home" className="hover:opacity-90">
+        <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-6 h-6" />
+      </button>
+      <button onClick={() => setActiveModal('help')} title="Help" className="hover:opacity-90">❓</button>
+      <button onClick={() => setActiveModal('config')} title="Settings" className="hover:opacity-90">
+        <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-6 h-6" />
+      </button>
+      <button onClick={() => setActiveModal('about')} title="About" className="hover:opacity-90">
+        <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-6 h-6" />
+      </button>
     </div>
   );
 
@@ -390,8 +418,13 @@ const Game = ({ gameId, initialState }) => {
     <div className="min-h-screen bg-mg-green-1 py-8">
       <div className="container mx-auto px-4">
         <div className="relative flex items-start justify-center">
-          <SideToolbar />
-          <div className="relative bg-mg-brown rounded-3xl p-6 shadow-2xl">
+          {isLandscape ? <SideToolbar /> : null}
+          <div className="relative bg-mg-brown rounded-3xl pt-12 pb-6 px-6 shadow-2xl">
+            {!isLandscape && (
+              <div className="absolute top-2 left-0 right-0 flex items-center justify-center">
+                <TopToolbar />
+              </div>
+            )}
             <ScorePill />
             <TimerWidget />
             <div className="bg-mg-brown rounded-xl p-4 relative">
@@ -497,7 +530,4 @@ const Game = ({ gameId, initialState }) => {
 };
 
 export default Game;
-
-
-
 
