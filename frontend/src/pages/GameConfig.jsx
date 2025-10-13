@@ -10,49 +10,54 @@ const GameConfig = ({ onStartGame }) => {
     level: 1,
     difficulty: 'medium',
     playerColor: 'LEFT',
+    mode: 'pve', // 'pve' or 'pvp'
     timerEnabled: false,
     timerMinutes: 10,
     chipColor: '#F5EFD5',
     maxTurnsEnabled: false,
     maxTurns: 60,
+    opponentChipColor: '#A40606',
   });
 
   const handleStartGame = async () => {
-    try {
-      const data = await api.createGame({
-        level: config.level,
-        difficulty: config.difficulty,
-        playerColor: config.playerColor,
+  try {
+    const data = await api.createGame({
+      level: config.level,
+      difficulty: config.difficulty,
+      playerColor: config.playerColor,
+      mode: config.mode,
+      timerEnabled: config.timerEnabled,
+      timerMinutes: config.timerMinutes,
+      maxTurnsEnabled: !!config.maxTurnsEnabled,
+      maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
+    });
+    if (data && data.success) {
+      const playerTeam = config.playerColor;
+      const opponentTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
+      let opponentChip = config.opponentChipColor;
+      if ((opponentChip || '').toLowerCase() === config.chipColor.toLowerCase()) {
+        opponentChip = CHIP_COLORS.find(c => c.toLowerCase() !== config.chipColor.toLowerCase()) || '#A4A77E';
+      }
+      const enriched = {
+        ...data,
+        mode: config.mode,
         timerEnabled: config.timerEnabled,
         timerMinutes: config.timerMinutes,
         maxTurnsEnabled: !!config.maxTurnsEnabled,
-        maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
-      });
-      if (data.success) {
-        const playerTeam = config.playerColor;
-        const aiTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
-        const aiChip = CHIP_COLORS.find(c => c.toLowerCase() !== config.chipColor.toLowerCase()) || '#A4A77E';
-
-        const enriched = {
-          ...data,
-          timerEnabled: config.timerEnabled,
-          timerMinutes: config.timerMinutes,
-          maxTurnsEnabled: !!config.maxTurnsEnabled,
-          maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
-          chipColors: {
-            [playerTeam]: config.chipColor,
-            [aiTeam]: aiChip,
-          },
-        };
-
-        try { sessionStorage.setItem('gameSession', JSON.stringify(enriched)); } catch {}
-        onStartGame(enriched);
-        navigate('/game');
-      }
-    } catch (error) {
-      console.error('Error starting game:', error);
+        maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
+        chipColors: {
+          [playerTeam]: config.chipColor,
+          [opponentTeam]: opponentChip,
+        },
+      };
+      try { sessionStorage.setItem('gameSession', JSON.stringify(enriched)); } catch {}
+      onStartGame(enriched);
+      navigate('/game');
     }
-  };
+  } catch (error) {
+    console.error('Error starting game:', error);
+  }
+};
 
   return (
     <div className="min-h-screen bg-mg-green-1 py-16">
@@ -61,6 +66,27 @@ const GameConfig = ({ onStartGame }) => {
           <h1 className="text-5xl font-extrabold text-mg-cream mb-8 text-center">Game Configuration</h1>
 
           <div className="bg-mg-cream text-mg-brown rounded-lg p-8 border border-mg-cream/20">
+            {/* Mode Selection */}
+            <div className="mb-8">
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Mode</label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setConfig({ ...config, mode: 'pve' })}
+                  className={`p-4 rounded-lg border transition ${config.mode === 'pve' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-mg-brown/20'}`}
+                >
+                  <div className="text-lg font-bold">1 PLAYER</div>
+                  <div className="text-xs">vs AI</div>
+                </button>
+                <button
+                  onClick={() => setConfig({ ...config, mode: 'pvp' })}
+                  className={`p-4 rounded-lg border transition ${config.mode === 'pvp' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-mg-brown/20'}`}
+                >
+                  <div className="text-lg font-bold">2 PLAYERS</div>
+                  <div className="text-xs">same device</div>
+                </button>
+              </div>
+            </div>
+
             {/* Level Selection */}
             <div className="mb-8">
               <label className="text-mg-cream text-xl font-bold mb-4 block">Game Level</label>
@@ -117,7 +143,7 @@ const GameConfig = ({ onStartGame }) => {
                     config.playerColor === 'RIGHT' ? 'bg-mg-green-1 text-mg-cream' : 'bg-white/40 text-mg-brown hover:bg-white/60'
                   }`}
                 >
-                  <div className="font-bold">Right (AI starts)</div>
+                  <div className="font-bold">{config.mode === 'pvp' ? 'Right (Player 2)' : 'Right (AI starts)'}</div>
                   <div className="text-sm">Play second</div>
                 </button>
               </div>
@@ -125,8 +151,11 @@ const GameConfig = ({ onStartGame }) => {
 
             {/* Chip color selection */}
             <div className="mb-8">
-              <label className="text-mg-brown text-xl font-bold mb-4 block">Your Chip Color</label>
-              <div className="flex flex-wrap gap-3">
+              <label className="text-mg-brown text-xl font-bold mb-2 block">Team Colors</label>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <div className="text-sm font-semibold mb-2">You</div>
+                  <div className="flex flex-wrap gap-3">
                 {CHIP_COLORS.map((color) => (
                   <button
                     key={color}
@@ -138,8 +167,25 @@ const GameConfig = ({ onStartGame }) => {
                     title={color}
                   />
                 ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold mb-2">{config.mode === 'pvp' ? 'Player 2' : 'AI'}</div>
+                  <div className="flex flex-wrap gap-3">
+                    {CHIP_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setConfig({ ...config, opponentChipColor: color })}
+                        style={{ backgroundColor: color }}
+                        className={`w-10 h-10 rounded-full border-2 ${
+                          config.opponentChipColor === color ? 'border-mg-sand ring-2 ring-mg-sand' : 'border-white/30'
+                        }`}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="text-mg-brown/80 text-xs mt-2">The AI chip color will differ from yours automatically.</div>
             </div>
 
             {/* Advanced Configurations */}
@@ -213,5 +259,7 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
+
+
 
 

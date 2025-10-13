@@ -38,3 +38,16 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+/* Glow effects for selection and legal targets */
+.glow-selected {
+  box-shadow:
+    0 0 0 2px rgba(245,239,213,0.85),
+    0 0 10px 4px rgba(245,239,213,0.6),
+    0 0 24px 10px rgba(245,239,213,0.35);
+  border-radius: 0.5rem; /* match cell rounding */
+}
+
+.glow-legal {
+  box-shadow: 0 0 10px 3px rgba(245,239,213,0.8);
+}

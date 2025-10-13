@@ -62,6 +62,7 @@ def new_game():
         player_color = data.get('playerColor', 'LEFT')
         timer_enabled = data.get('timerEnabled', False)
         timer_minutes = data.get('timerMinutes', 10)
+        mode = data.get('mode', 'pve')  # 'pve' or 'pvp'
         max_turns_enabled = data.get('maxTurnsEnabled', False)
         max_turns = data.get('maxTurns')
         
@@ -80,9 +81,12 @@ def new_game():
         # Create game instance
         game = game_manager.create_game(level)
         
-        # Initialize AI agent based on difficulty
-        ai_agent = ai_manager.get_agent(level, difficulty)
-        ai_color = 'RIGHT' if player_color == 'LEFT' else 'LEFT'
+        # Initialize AI only for PvE mode
+        ai_agent = None
+        ai_color = None
+        if mode == 'pve':
+            ai_agent = ai_manager.get_agent(level, difficulty)
+            ai_color = 'RIGHT' if player_color == 'LEFT' else 'LEFT'
         
         # Store game session
         active_games[game_id] = {
@@ -94,6 +98,7 @@ def new_game():
             'difficulty': difficulty,
             'timer_enabled': timer_enabled,
             'timer_minutes': timer_minutes,
+            'mode': mode,
             'max_turns_enabled': bool(max_turns_enabled),
             'max_turns': int(max_turns) if (max_turns_enabled and isinstance(max_turns, (int, float))) else None,
             'win_goals': 2,  # default: play to 2 goals unless overridden in future
@@ -111,6 +116,7 @@ def new_game():
             'gameState': game_state,
             'playerColor': player_color,
             'aiColor': ai_color,
+            'mode': mode,
             'maxTurnsEnabled': bool(max_turns_enabled),
             'maxTurns': active_games[game_id]['max_turns']
         })
@@ -285,7 +291,9 @@ def restart_game(game_id):
         
         # Create new game with same settings
         new_game = game_manager.create_game(session['level'])
-        new_ai_agent = ai_manager.get_agent(session['level'], session['difficulty'])
+        new_ai_agent = None
+        if session.get('mode', 'pve') == 'pve':
+            new_ai_agent = ai_manager.get_agent(session['level'], session['difficulty'])
         
         # Reset session
         session['game'] = new_game
@@ -346,3 +354,6 @@ def internal_error(error):
 if __name__ == '__main__':
     # For local development
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+
+

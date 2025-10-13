@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
 import Modal from '../components/Modal.jsx';
-import api from '../services/api';
 
 const Game = ({ gameId, initialState }) => {
   const [gameState, setGameState] = useState(initialState?.gameState || null);
