@@ -12,6 +12,7 @@ from agents.mcts_minimax_random import MCTSStandardAgent, MinimaxAgent, RandomAg
 from agents.heuristic_agent import HeuristicAgent
 from agents.heuristic_agent_level2 import HeuristicAgentLevel2
 from agents.heuristic_agent_level2_territorial import HeuristicTerritorialControl
+from agents.heuristics_roles_l3 import HeuristicRoleBased
 
 
 class AIManager:
@@ -26,11 +27,11 @@ class AIManager:
                     'type': 'random',
                     'name': 'Random_L1'
                 },
-                'medium': {
+                'hard': {
                     'type': 'heuristic',
                     'name': 'Heuristic_L1'
                 },
-                'hard': {
+                'medium': {
                     'type': 'minimax',
                     'name': 'M1P2',
                     'weights_file': 'weights/M1P2.json'
@@ -54,17 +55,19 @@ class AIManager:
             },
             3: {  # Level 3 configurations
                 'easy': {
-                    'type': 'random',
-                    'name': 'Random_L3'
+                    'type': 'RoleBased',
+                    'name': 'Balanced',
+                    'playstyle': 'balanced'
                 },
                 'medium': {
-                    'type': 'heuristic',
-                    'name': 'Heuristic_L3'
+                    'type': 'RoleBased',
+                    'name': 'Offensive',
+                    'playstyle': 'offensive'
                 },
                 'hard': {
-                    'type': 'mcts',
-                    'name': 'MCTS_L3',
-                    'iterations': 100  # Reduced for web performance
+                    'type': 'RoleBased',
+                    'name': 'Defensive',
+                    'playstyle': 'defensive'
                 }
             }
         }
@@ -101,6 +104,13 @@ class AIManager:
                     name=config['name'],
                     level=level,
                     advanced=True
+                )
+
+            elif agent_type == 'RoleBased':
+                return HeuristicRoleBased(
+                    name=config['name'],
+                    level=level,
+                    playstyle=config['playstyle']
                 )
             
             elif agent_type == 'territorial':

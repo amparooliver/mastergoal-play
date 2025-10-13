@@ -20,49 +20,75 @@ const GameConfig = ({ onStartGame }) => {
   });
 
   const handleStartGame = async () => {
-  try {
-    const data = await api.createGame({
-      level: config.level,
-      difficulty: config.difficulty,
-      playerColor: config.playerColor,
-      mode: config.mode,
-      timerEnabled: config.timerEnabled,
-      timerMinutes: config.timerMinutes,
-      maxTurnsEnabled: !!config.maxTurnsEnabled,
-      maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
-    });
-    if (data && data.success) {
-      const playerTeam = config.playerColor;
-      const opponentTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
-      let opponentChip = config.opponentChipColor;
-      if ((opponentChip || '').toLowerCase() === config.chipColor.toLowerCase()) {
-        opponentChip = CHIP_COLORS.find(c => c.toLowerCase() !== config.chipColor.toLowerCase()) || '#A4A77E';
-      }
-      const enriched = {
-        ...data,
+    try {
+      const data = await api.createGame({
+        level: config.level,
+        difficulty: config.difficulty,
+        playerColor: config.playerColor,
         mode: config.mode,
         timerEnabled: config.timerEnabled,
         timerMinutes: config.timerMinutes,
         maxTurnsEnabled: !!config.maxTurnsEnabled,
-        maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
-        chipColors: {
-          [playerTeam]: config.chipColor,
-          [opponentTeam]: opponentChip,
-        },
-      };
-      try { sessionStorage.setItem('gameSession', JSON.stringify(enriched)); } catch {}
-      onStartGame(enriched);
-      navigate('/game');
+        maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
+      });
+      if (data && data.success) {
+        const playerTeam = config.playerColor;
+        const opponentTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
+        let opponentChip = config.opponentChipColor;
+        if ((opponentChip || '').toLowerCase() === config.chipColor.toLowerCase()) {
+          opponentChip = CHIP_COLORS.find(c => c.toLowerCase() !== config.chipColor.toLowerCase()) || '#A4A77E';
+        }
+        const enriched = {
+          ...data,
+          mode: config.mode,
+          timerEnabled: config.timerEnabled,
+          timerMinutes: config.timerMinutes,
+          maxTurnsEnabled: !!config.maxTurnsEnabled,
+          maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
+          chipColors: {
+            [playerTeam]: config.chipColor,
+            [opponentTeam]: opponentChip,
+          },
+        };
+        try { sessionStorage.setItem('gameSession', JSON.stringify(enriched)); } catch {}
+        onStartGame(enriched);
+        navigate('/game');
+      }
+    } catch (error) {
+      console.error('Error starting game:', error);
     }
-  } catch (error) {
-    console.error('Error starting game:', error);
-  }
-};
+  };
+
+  // Handler for player chip color selection
+  const handlePlayerChipColorChange = (color) => {
+    const newConfig = { ...config, chipColor: color };
+    // If opponent has the same color, auto-select a different one
+    if (config.opponentChipColor === color) {
+      const availableColor = CHIP_COLORS.find(c => c !== color);
+      if (availableColor) {
+        newConfig.opponentChipColor = availableColor;
+      }
+    }
+    setConfig(newConfig);
+  };
+
+  // Handler for opponent chip color selection
+  const handleOpponentChipColorChange = (color) => {
+    const newConfig = { ...config, opponentChipColor: color };
+    // If player has the same color, auto-select a different one
+    if (config.chipColor === color) {
+      const availableColor = CHIP_COLORS.find(c => c !== color);
+      if (availableColor) {
+        newConfig.chipColor = availableColor;
+      }
+    }
+    setConfig(newConfig);
+  };
 
   return (
     <div className="min-h-screen bg-mg-green-1 py-16">
       <div className="container mx-auto px-4">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-lg mx-auto">
           <h1 className="text-5xl font-extrabold text-mg-cream mb-8 text-center">Game Configuration</h1>
 
           <div className="bg-mg-cream text-mg-brown rounded-lg p-8 border border-mg-cream/20">
@@ -72,14 +98,14 @@ const GameConfig = ({ onStartGame }) => {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setConfig({ ...config, mode: 'pve' })}
-                  className={`p-4 rounded-lg border transition ${config.mode === 'pve' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-mg-brown/20'}`}
+                  className={`p-4 rounded-lg border transition ${config.mode === 'pve' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-transparent'}`}
                 >
                   <div className="text-lg font-bold">1 PLAYER</div>
                   <div className="text-xs">vs AI</div>
                 </button>
                 <button
                   onClick={() => setConfig({ ...config, mode: 'pvp' })}
-                  className={`p-4 rounded-lg border transition ${config.mode === 'pvp' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-mg-brown/20'}`}
+                  className={`p-4 rounded-lg border transition ${config.mode === 'pvp' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-transparent'}`}
                 >
                   <div className="text-lg font-bold">2 PLAYERS</div>
                   <div className="text-xs">same device</div>
@@ -89,7 +115,7 @@ const GameConfig = ({ onStartGame }) => {
 
             {/* Level Selection */}
             <div className="mb-8">
-              <label className="text-mg-cream text-xl font-bold mb-4 block">Game Level</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">Game Level</label>
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 3].map(level => (
                   <button
@@ -156,33 +182,49 @@ const GameConfig = ({ onStartGame }) => {
                 <div>
                   <div className="text-sm font-semibold mb-2">You</div>
                   <div className="flex flex-wrap gap-3">
-                {CHIP_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setConfig({ ...config, chipColor: color })}
-                    style={{ backgroundColor: color }}
-                    className={`w-10 h-10 rounded-full border-2 ${
-                      config.chipColor === color ? 'border-mg-sand ring-2 ring-mg-sand' : 'border-white/30'
-                    }`}
-                    title={color}
-                  />
-                ))}
+                    {CHIP_COLORS.map((color) => {
+                      const isDisabled = color === config.opponentChipColor;
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => !isDisabled && handlePlayerChipColorChange(color)}
+                          style={{ backgroundColor: color }}
+                          className={`w-8 h-8 rounded-full border-2 transition ${
+                            config.chipColor === color 
+                              ? 'border-mg-sand ring-2 ring-mg-sand' 
+                              : isDisabled
+                              ? 'border-white/30 opacity-30 cursor-not-allowed'
+                              : 'border-white/30 hover:border-mg-sand/50 cursor-pointer'
+                          }`}
+                          title={isDisabled ? 'Color already selected by opponent' : color}
+                          disabled={isDisabled}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm font-semibold mb-2">{config.mode === 'pvp' ? 'Player 2' : 'AI'}</div>
                   <div className="flex flex-wrap gap-3">
-                    {CHIP_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => setConfig({ ...config, opponentChipColor: color })}
-                        style={{ backgroundColor: color }}
-                        className={`w-10 h-10 rounded-full border-2 ${
-                          config.opponentChipColor === color ? 'border-mg-sand ring-2 ring-mg-sand' : 'border-white/30'
-                        }`}
-                        title={color}
-                      />
-                    ))}
+                    {CHIP_COLORS.map((color) => {
+                      const isDisabled = color === config.chipColor;
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => !isDisabled && handleOpponentChipColorChange(color)}
+                          style={{ backgroundColor: color }}
+                          className={`w-8 h-8 rounded-full border-2 transition ${
+                            config.opponentChipColor === color 
+                              ? 'border-mg-sand ring-2 ring-mg-sand' 
+                              : isDisabled
+                              ? 'border-white/30 opacity-30 cursor-not-allowed'
+                              : 'border-white/30 hover:border-mg-sand/50 cursor-pointer'
+                          }`}
+                          title={isDisabled ? 'Color already selected by player' : color}
+                          disabled={isDisabled}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -259,7 +301,4 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
-
-
-
 

@@ -45,9 +45,9 @@ const About = () => {
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
               <div className="text-mg-cream font-bold text-lg">Credits</div>
               <ul className="text-mg-cream/80 mt-2 text-sm list-disc list-inside space-y-1">
-                <li>Thesis Author: Your Name</li>
-                <li>Advisor(s): Advisor Name(s)</li>
-                <li>Special thanks to contributors and reviewers</li>
+                <li>Thesis Author: Amparo Oliver</li>
+                <li>Advisor(s): PhD. Luca Cernuzzi</li>
+                <li>Special thanks to the creator of the game, Alberto Bogliaccini</li>
               </ul>
             </div>
           </motion.div>

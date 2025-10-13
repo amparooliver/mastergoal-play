@@ -22,7 +22,7 @@ class Config:
     GAME_TIMEOUT_MINUTES = int(os.environ.get('GAME_TIMEOUT_MINUTES', '30'))
     
     # AI settings
-    AI_MOVE_TIMEOUT = float(os.environ.get('AI_MOVE_TIMEOUT', '5.0'))
+    AI_MOVE_TIMEOUT = float(os.environ.get('AI_MOVE_TIMEOUT', '10.0'))
     
     # Render deployment
     PORT = int(os.environ.get('PORT', '5000'))
