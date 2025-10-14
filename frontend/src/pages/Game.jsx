@@ -282,7 +282,7 @@ const Game = ({ gameId, initialState }) => {
     const isAiMoveFrom = lastAiMove && lastAiMove.from.row === row && lastAiMove.from.col === col;
     const isAiMoveTo = lastAiMove && lastAiMove.to.row === row && lastAiMove.to.col === col;
 
-    let cellClass = 'w-12 h-12 relative flex items-center justify-center ';
+    let cellClass = 'w-full h-full relative flex items-center justify-center ';
     if (isOutside) {
       cellClass += 'bg-mg-brown cursor-not-allowed ';
     } else if (isGoal) {
@@ -385,23 +385,29 @@ const Game = ({ gameId, initialState }) => {
         )}
         
         {player && (
-          <div className="pointer-events-none">
-            <ChipIcon color={TEAM_COLORS[player.team]} width={34} height={34} />
+          <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+            <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
           </div>
         )}
-        {hasBall && <img src="/assets/bw-ball.svg" alt="ball" className="w-7 h-7 drop-shadow" />}
+        {hasBall && (
+          <img src="/assets/bw-ball.svg" alt="ball" className="w-1/2 h-1/2 drop-shadow" />
+        )}
         {
           (() => {
             const team = gameState?.currentTeam;
-            if (!team || gameState?.level < 3) return null;
+            if (!team) return null;
             const isLeft = team === 'LEFT';
             let special = false;
             if (isLeft) {
               if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) special = true;
+              if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) special = true;
             } else {
               if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) special = true;
+              if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) special = true;
             }
-            return special ? <span className="absolute w-2 h-2 rounded-full bg-mg-cream" /> : null;
+            return special ? (
+              <span className="absolute w-4 h-4 rounded-full bg-mg-cream shadow-sm z-10 pointer-events-none" />
+            ) : null;
           })()
         }
       </div>
@@ -417,7 +423,7 @@ const Game = ({ gameId, initialState }) => {
   }
 
   return (
-    <div className="min-h-screen bg-mg-green-1 py-8">
+    <div className="min-h-screen bg-mg-green-1 py-8 overflow-x-hidden">
       <div className="container mx-auto px-4">
         <div className="relative flex items-start justify-center">
           {isLandscape ? <SideToolbar /> : null}
@@ -430,13 +436,28 @@ const Game = ({ gameId, initialState }) => {
             <ScorePill />
             <TimerWidget />
             <div className="bg-mg-brown rounded-xl p-4 relative">
-              <div className="grid" style={{ gridTemplateRows: `repeat(${isLandscape ? 11 : 15}, 3rem)`, gridTemplateColumns: `repeat(${isLandscape ? 15 : 11}, 3rem)` }}>
-                {Array.from({ length: isLandscape ? 11 : 15 }).map((_, r) => (
-                  Array.from({ length: isLandscape ? 15 : 11 }).map((_, c) => (
-                    <div key={`${r}-${c}`}>{renderCell(r, c)}</div>
-                  ))
-                ))}
-              </div>
+              {(() => {
+                const rows = isLandscape ? 11 : 15;
+                const cols = isLandscape ? 15 : 11;
+                return (
+                  <div
+                    className="grid w-full max-w-[92vw] md:max-w-[900px]"
+                    style={{
+                      gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                      touchAction: 'manipulation'
+                    }}
+                  >
+                    {Array.from({ length: rows }).map((_, r) => (
+                      Array.from({ length: cols }).map((_, c) => (
+                        <div key={`${r}-${c}`} onPointerDown={() => handleCellClick(isLandscape ? c : r, isLandscape ? r : c)}>
+                          {/* Each cell fills its grid track; content keeps square via aspect-square wrapper */}
+                          <div className="w-full aspect-square">{renderCell(r, c)}</div>
+                        </div>
+                      ))
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-3 text-center text-mg-cream">
               <span className="font-bold">Turn: </span>

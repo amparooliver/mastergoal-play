@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-mg-green-1">
+    <div className="min-h-screen bg-mg-green-1 overflow-x-hidden">
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 opacity-20 pointer-events-none select-none">
           <div className="w-full h-full bg-[radial-gradient(circle_at_20%_20%,#ffffff33,transparent_40%),radial-gradient(circle_at_80%_30%,#ffffff22,transparent_40%),radial-gradient(circle_at_40%_80%,#ffffff11,transparent_40%)]" />
@@ -17,18 +17,17 @@ const Landing = () => {
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <h1 className="text-5xl md:text-7xl font-extrabold text-mg-cream drop-shadow-sm">
+            <h1 className="text-5xl md:text-7xl font-extrabold text-mg-sand drop-shadow-sm">
               Mastergoal
             </h1>
             <p className="mt-6 text-lg md:text-2xl text-mg-cream/90 max-w-3xl mx-auto">
-              Turn-based football strategy on a 15x11 pitch. Outsmart the AI with positioning,
-              passing lanes, and precise kicks to score.
+              A unique strategy game that combines the excitement of football with deep tactical decision-making and smart positioning.
             </p>
 
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 to="/config"
-                className="inline-flex items-center justify-center rounded-xl bg-mg-sand text-mg-brown font-semibold px-8 py-3 shadow hover:brightness-110 transition"
+                className="inline-flex items-center justify-center rounded-xl bg-mg-sand text-mg-brown font-bold px-10 py-3 shadow hover:brightness-110 transition"
               >
                 Play Now
               </Link>

@@ -61,16 +61,15 @@ const About = () => {
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
               <div className="text-mg-cream font-bold text-lg">Repositories</div>
               <div className="grid gap-3 mt-3">
-                <LinkCard title="Web Frontend" href="#" desc="React + Vite + Tailwind + Framer Motion" />
-                <LinkCard title="Flask Backend" href="#" desc="REST API exposing Mastergoal tournament system" />
-                <LinkCard title="Tournament System" href="#" desc="Core game logic and AI agents (MCTS, Minimax, Heuristics)" />
+                <LinkCard title="Web Frontend" href="https://github.com/amparooliver/mastergoal-play/tree/main/frontend" desc="React + Vite + Tailwind + Framer Motion" />
+                <LinkCard title="Flask Backend" href="https://github.com/amparooliver/mastergoal-play/tree/main/backend" desc="REST API exposing Mastergoal tournament system" />
+                <LinkCard title="Tournament System" href="https://github.com/amparooliver/tournament-system-Mastergoal" desc="Core game logic and AI agents (MCTS, Minimax, Heuristics)" />
               </div>
-              <div className="text-mg-cream/70 text-xs mt-2">Replace # links with your GitHub URLs.</div>
             </div>
 
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
               <div className="text-mg-cream font-bold text-lg">Contact</div>
-              <div className="text-mg-cream/80 mt-2 text-sm">Email: your.email@example.com</div>
+              <div className="text-mg-cream/80 mt-2 text-sm">Email: amparooliverb@gmail.com</div>
             </div>
           </motion.div>
         </div>
