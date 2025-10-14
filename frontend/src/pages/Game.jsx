@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
 import Modal from '../components/Modal.jsx';
@@ -12,6 +12,10 @@ const Game = ({ gameId, initialState }) => {
   const [lastAiMove, setLastAiMove] = useState(null);
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [isAnimatingAi, setIsAnimatingAi] = useState(false);
+  const aiAnimTimer = useRef(null);
+  const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
+  const aiSequenceEnd = useRef(null);
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
 
@@ -29,6 +33,9 @@ const Game = ({ gameId, initialState }) => {
     LEFT: '#E6DCB7', // sand
     RIGHT: '#A4A77E', // sage
   };
+  const MODE = sessionConfig?.mode || 'pve';
+  const HUMAN_TEAM = sessionConfig?.playerColor || 'LEFT';
+  const AI_TEAM = HUMAN_TEAM === 'LEFT' ? 'RIGHT' : 'LEFT';
 
   const timerEnabled = !!sessionConfig?.timerEnabled;
   const timerMinutes = sessionConfig?.timerMinutes ?? 0;
@@ -41,6 +48,16 @@ const Game = ({ gameId, initialState }) => {
     const handler = (e) => setIsLandscape(e.matches);
     mq.addEventListener?.('change', handler);
     return () => mq.removeEventListener?.('change', handler);
+  }, []);
+
+  // Cleanup AI animation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (aiAnimTimer.current) {
+        clearInterval(aiAnimTimer.current);
+        aiAnimTimer.current = null;
+      }
+    };
   }, []);
 
   // Resolve session on mount if needed
@@ -70,16 +87,79 @@ const Game = ({ gameId, initialState }) => {
     try {
       const response = await fetch(`${API_BASE}/api/game/${gid}/state`);
       const data = await response.json();
-      if (data.success) setGameState(data.gameState);
+      if (data.success) {
+        setGameState(data.gameState);
+        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
+        if (aiMoves.length) animateAiSequence(aiMoves);
+      }
     } catch (e) {
       console.error('Error fetching game state:', e);
     }
+  };
+
+  const buildPath = (from, to) => {
+    const dr = Math.sign((to?.row ?? 0) - (from?.row ?? 0));
+    const dc = Math.sign((to?.col ?? 0) - (from?.col ?? 0));
+    const steps = Math.max(
+      Math.abs((to?.row ?? 0) - (from?.row ?? 0)),
+      Math.abs((to?.col ?? 0) - (from?.col ?? 0))
+    );
+    return Array.from({ length: steps + 1 }).map((_, i) => ({ row: from.row + dr * i, col: from.col + dc * i }));
+  };
+
+  const animateSingleMove = (move, onDone) => {
+    const path = buildPath(move.from, move.to);
+    if (!path || path.length <= 1) { setTimeout(onDone, 100); return; }
+    setIsAnimatingAi(true);
+    setAiAnim({ active: true, path, index: 0, type: move.moveType || move.type, team: move.player });
+    if (aiAnimTimer.current) clearInterval(aiAnimTimer.current);
+    aiAnimTimer.current = setInterval(() => {
+      setAiAnim(prev => {
+        const nextIndex = prev.index + 1;
+        if (nextIndex >= prev.path.length) {
+          clearInterval(aiAnimTimer.current);
+          aiAnimTimer.current = null;
+          setAiAnim({ active: false, path: [], index: 0, type: null, team: null });
+          setTimeout(onDone, 80);
+          return prev;
+        }
+        return { ...prev, index: nextIndex };
+      });
+    }, 140);
+  };
+
+  const animateAiSequence = (moves) => {
+    if (!moves || moves.length === 0) return;
+    setLastAiMove(moves[moves.length - 1]);
+    aiSequenceEnd.current = moves[moves.length - 1].to;
+    let i = 0;
+    const next = () => {
+      if (i >= moves.length) {
+        setIsAnimatingAi(false);
+        aiSequenceEnd.current = null;
+        setTimeout(() => setLastAiMove(null), 800);
+        return;
+      }
+      animateSingleMove(moves[i], () => { i += 1; next(); });
+    };
+    next();
   };
 
   useEffect(() => {
     const gid = resolvedGameId || gameId;
     if (gid && !initialState) fetchGameState();
   }, [resolvedGameId, gameId]);
+
+  // If AI should start or it's AI's turn on load, trigger state fetch to let backend play
+  useEffect(() => {
+    if (!gameState) return;
+    const gid = resolvedGameId || gameId;
+    if (!gid) return;
+    if (MODE === 'pve' && gameState.currentTeam === AI_TEAM && !isLoading && !isAnimatingAi) {
+      fetchGameState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentTeam]);
 
   // Timer: simple per-turn countdown UI (client-side only)
   useEffect(() => {
@@ -105,7 +185,8 @@ const Game = ({ gameId, initialState }) => {
 
   // Handle cell click
   const handleCellClick = async (row, col) => {
-    if (isLoading || gameEnded || !gameState) return;
+    if (isLoading || gameEnded || !gameState || isAnimatingAi) return;
+    if (MODE === 'pve' && gameState.currentTeam !== HUMAN_TEAM) return; // block input if it's AI's turn
 
     const piece = gameState.players?.find(p => p.position.row === row && p.position.col === col);
     const onBall = gameState.ball?.row === row && gameState.ball?.col === col;
@@ -150,10 +231,8 @@ const Game = ({ gameId, initialState }) => {
         setGameState(data.gameState);
         setSelectedPiece(null);
         setLegalMoves([]);
-        if (data.lastAiMove) {
-          setLastAiMove(data.lastAiMove);
-          setTimeout(() => setLastAiMove(null), 3000);
-        }
+        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
+        if (aiMoves.length) animateAiSequence(aiMoves);
         if (data.gameEnded) {
           setGameEnded(true);
           setWinner(data.winner);
@@ -277,6 +356,14 @@ const Game = ({ gameId, initialState }) => {
     const player = gameState?.players?.find(p => p.position.row === row && p.position.col === col);
     const hasBall = gameState?.ball?.row === row && gameState?.ball?.col === col;
 
+    // AI animation overlay logic
+    const aiActive = aiAnim.active;
+    const aiStepPos = aiActive ? aiAnim.path[aiAnim.index] : null;
+    const aiFinalPos = aiActive ? aiAnim.path[aiAnim.path.length - 1] : null;
+    const showAiOverlayHere = aiActive && aiStepPos && aiStepPos.row === row && aiStepPos.col === col;
+    const hideFinalDuringAnim = aiActive && aiFinalPos && aiFinalPos.row === row && aiFinalPos.col === col;
+    const hideSequenceEnd = aiActive && aiSequenceEnd.current && aiSequenceEnd.current.row === row && aiSequenceEnd.current.col === col;
+
     const isLegalMove = legalMoves.some(m => m.to.row === row && m.to.col === col);
     const isSelected = selectedPiece && selectedPiece.position?.row === row && selectedPiece.position?.col === col;
     const isAiMoveFrom = lastAiMove && lastAiMove.from.row === row && lastAiMove.from.col === col;
@@ -384,13 +471,22 @@ const Game = ({ gameId, initialState }) => {
           </>
         )}
         
-        {player && (
+        {player && !(hideFinalDuringAnim || hideSequenceEnd) && (
           <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
             <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
           </div>
         )}
-        {hasBall && (
+        {hasBall && !(hideFinalDuringAnim || hideSequenceEnd) && (
           <img src="/assets/bw-ball.svg" alt="ball" className="w-1/2 h-1/2 drop-shadow" />
+        )}
+        {showAiOverlayHere && (
+          aiAnim.type === 'kick' ? (
+            <img src="/assets/bw-ball.svg" alt="ball-anim" className="w-1/2 h-1/2 drop-shadow pointer-events-none" />
+          ) : (
+            <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+              <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
+            </div>
+          )
         )}
         {
           (() => {

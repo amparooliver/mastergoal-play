@@ -133,13 +133,58 @@ def get_game_state(game_id):
     
     try:
         session = active_games[game_id]
-        game_state = game_manager.get_game_state(session['game'])
+        game = session['game']
+
+        # If it's AI's turn when fetching state, let AI play now so the client sees the move
+        last_ai_move_payload = None
+        ai_moves = []
+        if session.get('mode', 'pve') == 'pve' and session.get('ai_agent') is not None and game.current_team == session.get('ai_color'):
+            ai_agent = session['ai_agent']
+            chain_limit = 10
+            while game.current_team == session['ai_color'] and chain_limit > 0:
+                chain_limit -= 1
+                ai_move = ai_manager.get_ai_move(ai_agent, game, session['ai_color'])
+                if not ai_move:
+                    break
+                ai_move_type, ai_from_pos, ai_to_pos = ai_move
+                success, _ = game_manager.execute_move(
+                    game, ai_move_type,
+                    {'row': ai_from_pos.row, 'col': ai_from_pos.col},
+                    {'row': ai_to_pos.row, 'col': ai_to_pos.col}
+                )
+                if not success:
+                    break
+                last_ai_move_payload = {
+                    'player': session['ai_color'],
+                    'moveType': ai_move_type,
+                    'from': {'row': ai_from_pos.row, 'col': ai_from_pos.col},
+                    'to': {'row': ai_to_pos.row, 'col': ai_to_pos.col},
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                session['move_history'].append(last_ai_move_payload)
+                ai_moves.append(last_ai_move_payload)
+
+                # Stop chaining if game ends
+                game_status = game_manager.check_game_status(
+                    game,
+                    win_goals=session.get('win_goals'),
+                    max_turns_enabled=session.get('max_turns_enabled', False),
+                    max_turns=session.get('max_turns')
+                )
+                if game_status['ended']:
+                    session['status'] = 'completed'
+                    session['winner'] = game_status['winner']
+                    break
+
+        game_state = game_manager.get_game_state(game)
         
         return jsonify({
             'success': True,
             'gameState': game_state,
             'status': session['status'],
-            'moveHistory': session['move_history']
+            'moveHistory': session['move_history'],
+            'aiMoves': ai_moves,
+            'lastAiMove': last_ai_move_payload
         })
         
     except Exception as e:
@@ -166,8 +211,13 @@ def make_move(game_id):
         if not all([move_type, from_pos, to_pos]):
             return jsonify({'error': 'Invalid move data'}), 400
         
-        # Execute player move
+        # Enforce turn ownership: only the human player may call this endpoint
         game = session['game']
+        if session.get('mode', 'pve') == 'pve':
+            if game.current_team != session.get('player_color'):
+                return jsonify({'error': 'Not your turn'}), 400
+        
+        # Execute player move
         success, message = game_manager.execute_move(
             game, move_type, from_pos, to_pos
         )
@@ -209,6 +259,7 @@ def make_move(game_id):
             })
         
         # AI turn: allow chained AI actions until turn passes or game ends
+        ai_moves = []
         if game.current_team == session['ai_color']:
             ai_agent = session['ai_agent']
             # Safety cap to avoid infinite loops due to unexpected states
@@ -226,13 +277,15 @@ def make_move(game_id):
                 )
                 if not success:
                     break
-                session['move_history'].append({
+                payload = {
                     'player': session['ai_color'],
                     'moveType': ai_move_type,
                     'from': {'row': ai_from_pos.row, 'col': ai_from_pos.col},
                     'to': {'row': ai_to_pos.row, 'col': ai_to_pos.col},
                     'timestamp': datetime.utcnow().isoformat()
-                })
+                }
+                session['move_history'].append(payload)
+                ai_moves.append(payload)
                 game_status = game_manager.check_game_status(
                     game,
                     win_goals=win_goals,
@@ -250,8 +303,8 @@ def make_move(game_id):
             'gameState': game_manager.get_game_state(game),
             'gameEnded': game_status['ended'],
             'winner': game_status.get('winner'),
-            'lastAiMove': session['move_history'][-1] if session['move_history'] and 
-                          session['move_history'][-1]['player'] == session['ai_color'] else None
+            'aiMoves': ai_moves,
+            'lastAiMove': ai_moves[-1] if ai_moves else None
         })
         
     except Exception as e:
