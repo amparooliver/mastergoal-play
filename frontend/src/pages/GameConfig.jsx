@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useI18n } from '../context/i18n2';
 
 const CHIP_COLORS = ['#F5EFD5', '#F18F01', '#A40606', '#202C59', '#120F0F'];
 
 const GameConfig = ({ onStartGame }) => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [config, setConfig] = useState({
     level: 1,
     difficulty: 'medium',
     playerColor: 'LEFT',
     mode: 'pve', // 'pve' or 'pvp'
     timerEnabled: false,
-    timerMinutes: 10,
+    timerSeconds: 15,
     chipColor: '#F5EFD5',
     maxTurnsEnabled: false,
     maxTurns: 60,
@@ -27,7 +29,7 @@ const GameConfig = ({ onStartGame }) => {
         playerColor: config.playerColor,
         mode: config.mode,
         timerEnabled: config.timerEnabled,
-        timerMinutes: config.timerMinutes,
+        timerMinutes: Math.ceil((config.timerSeconds || 0) / 60),
         maxTurnsEnabled: !!config.maxTurnsEnabled,
         maxTurns: config.maxTurnsEnabled ? config.maxTurns : undefined,
       });
@@ -42,7 +44,7 @@ const GameConfig = ({ onStartGame }) => {
           ...data,
           mode: config.mode,
           timerEnabled: config.timerEnabled,
-          timerMinutes: config.timerMinutes,
+          timerSeconds: config.timerSeconds,
           maxTurnsEnabled: !!config.maxTurnsEnabled,
           maxTurns: config.maxTurnsEnabled ? config.maxTurns : 0,
           chipColors: {
@@ -89,33 +91,33 @@ const GameConfig = ({ onStartGame }) => {
     <div className="min-h-screen bg-mg-green-1 py-16">
       <div className="container mx-auto px-4">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-5xl font-extrabold text-mg-cream mb-8 text-center">Game Configuration</h1>
+          <h1 className="text-5xl font-extrabold text-mg-cream mb-8 text-center">{t('gameConfiguration')}</h1>
 
           <div className="bg-mg-cream text-mg-brown rounded-lg p-8 border border-mg-cream/20">
             {/* Mode Selection */}
             <div className="mb-8">
-              <label className="text-mg-brown text-xl font-bold mb-4 block">Mode</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">{t('mode')}</label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setConfig({ ...config, mode: 'pve' })}
                   className={`p-4 rounded-lg border transition ${config.mode === 'pve' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-transparent'}`}
                 >
-                  <div className="text-lg font-bold">1 PLAYER</div>
-                  <div className="text-xs">vs AI</div>
+                  <div className="text-lg font-bold">{t('onePlayerShort')}</div>
+                  <div className="text-xs">{t('vsAI')}</div>
                 </button>
                 <button
                   onClick={() => setConfig({ ...config, mode: 'pvp' })}
                   className={`p-4 rounded-lg border transition ${config.mode === 'pvp' ? 'bg-mg-green-1 text-mg-cream border-transparent' : 'bg-white/40 text-mg-brown hover:bg-white/60 border-transparent'}`}
                 >
-                  <div className="text-lg font-bold">2 PLAYERS</div>
-                  <div className="text-xs">same device</div>
+                  <div className="text-lg font-bold">{t('twoPlayersShort')}</div>
+                  <div className="text-xs">{t('sameDevice')}</div>
                 </button>
               </div>
             </div>
 
             {/* Level Selection */}
             <div className="mb-8">
-              <label className="text-mg-brown text-xl font-bold mb-4 block">Game Level</label>
+              <label className="text-mg-brown text-xl font-bold mb-4 block">{t('gameLevel')}</label>
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 3].map(level => (
                   <button
@@ -236,7 +238,7 @@ const GameConfig = ({ onStartGame }) => {
               <div className="mt-4 space-y-6">
                 {/* Timer Option */}
                 <div>
-                  <label className="text-mg-brown text-lg font-bold mb-2 block">Timer</label>
+                  <label className="text-mg-brown text-lg font-bold mb-2 block">Turn Timer</label>
                   <div className="flex items-center space-x-4">
                     <button
                       onClick={() => setConfig({ ...config, timerEnabled: !config.timerEnabled })}
@@ -247,14 +249,13 @@ const GameConfig = ({ onStartGame }) => {
                     <span className="text-mg-brown">{config.timerEnabled ? 'Enabled' : 'Disabled'}</span>
                     {config.timerEnabled && (
                       <select
-                        value={config.timerMinutes}
-                        onChange={(e) => setConfig({ ...config, timerMinutes: parseInt(e.target.value) })}
+                        value={config.timerSeconds}
+                        onChange={(e) => setConfig({ ...config, timerSeconds: parseInt(e.target.value) })}
                         className="bg-white/40 text-mg-brown px-3 py-1 rounded border border-mg-cream/20"
                       >
-                        <option value="5">5 minutes</option>
-                        <option value="10">10 minutes</option>
-                        <option value="15">15 minutes</option>
-                        <option value="20">20 minutes</option>
+                        {[10,15,20,30,45,60].map(s => (
+                          <option key={s} value={s}>{s} seconds</option>
+                        ))}
                       </select>
                     )}
                   </div>
@@ -291,7 +292,7 @@ const GameConfig = ({ onStartGame }) => {
               onClick={handleStartGame}
               className="w-full bg-mg-green-1 text-mg-cream text-2xl font-bold py-4 rounded-lg hover:brightness-110 transition transform hover:scale-105"
             >
-              Start Game
+              {t('start')}
             </button>
           </div>
         </div>
@@ -301,4 +302,3 @@ const GameConfig = ({ onStartGame }) => {
 };
 
 export default GameConfig;
-

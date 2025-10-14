@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useI18n } from '../context/i18n2';
 
 const Landing = () => {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-mg-green-1 overflow-x-hidden">
       <div className="relative overflow-hidden">
@@ -21,7 +23,7 @@ const Landing = () => {
               Mastergoal
             </h1>
             <p className="mt-6 text-lg md:text-2xl text-mg-cream/90 max-w-3xl mx-auto">
-              A unique strategy game that combines the excitement of football with deep tactical decision-making and smart positioning.
+              {t('landingTagline')}
             </p>
 
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -29,13 +31,13 @@ const Landing = () => {
                 to="/config"
                 className="inline-flex items-center justify-center rounded-xl bg-mg-sand text-mg-brown font-bold px-10 py-3 shadow hover:brightness-110 transition"
               >
-                Play Now
+                {t('playNow')}
               </Link>
               <Link
                 to="/how-to-play"
                 className="inline-flex items-center justify-center rounded-xl bg-white/10 text-mg-cream px-8 py-3 backdrop-blur border border-white/20 hover:bg-white/20 transition"
               >
-                How to Play
+                {t('howToPlay')}
               </Link>
             </div>
           </motion.div>
@@ -50,7 +52,7 @@ const Landing = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div className="text-mg-cream">
                   <div className="text-3xl font-extrabold">15x11</div>
-                  <div className="text-white/80 text-sm">Pitch Grid</div>
+                  <div className="text-white/80 text-sm">{t('pitchGrid')}</div>
                 </div>
                 <div className="text-mg-cream">
                   <div className="text-3xl font-extrabold">AI</div>
@@ -58,11 +60,11 @@ const Landing = () => {
                 </div>
                 <div className="text-mg-cream">
                   <div className="text-3xl font-extrabold">3</div>
-                  <div className="text-white/80 text-sm">Difficulty Levels</div>
+                  <div className="text-white/80 text-sm">{t('difficultyLevels')}</div>
                 </div>
                 <div className="text-mg-cream">
                   <div className="text-3xl font-extrabold">Real-time</div>
-                  <div className="text-white/80 text-sm">Turn Feedback</div>
+                  <div className="text-white/80 text-sm">{t('turnFeedback')}</div>
                 </div>
               </div>
             </div>
@@ -70,7 +72,7 @@ const Landing = () => {
 
           <div className="mt-12 text-center">
             <Link to="/about" className="text-mg-cream/80 hover:text-mg-cream underline underline-offset-4">
-              Learn about the thesis and research context
+              {t('learnMoreThesis')}
             </Link>
           </div>
         </div>

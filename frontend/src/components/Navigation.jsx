@@ -1,7 +1,7 @@
 // src/components/Navigation.jsx
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useI18n } from '../context/i18n';
+import { useI18n } from '../context/i18n2';
 
 const Navigation = () => {
   const location = useLocation();
@@ -81,4 +81,3 @@ const Navigation = () => {
 };
 
 export default Navigation;
-

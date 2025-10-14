@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useI18n } from '../context/i18n2';
 
 const LinkCard = ({ title, href, desc }) => (
   <a
@@ -14,6 +15,7 @@ const LinkCard = ({ title, href, desc }) => (
 );
 
 const About = () => {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-mg-green-1 py-16">
       <div className="container mx-auto px-6">
@@ -23,7 +25,7 @@ const About = () => {
           transition={{ duration: 0.4 }}
           className="text-4xl md:text-5xl font-extrabold text-mg-cream text-center"
         >
-          About This Thesis
+          {t('aboutTitle')}
         </motion.h1>
 
         <div className="mt-10 grid lg:grid-cols-2 gap-8">
@@ -34,20 +36,16 @@ const About = () => {
             className="space-y-4"
           >
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
-              <div className="text-mg-cream font-bold text-lg">Research Context</div>
-              <p className="text-mg-cream/80 mt-2 text-sm leading-relaxed">
-                This project evaluates competitive AI agents on a structured, turn-based football environment (Mastergoal),
-                comparing Minimax, MCTS, and heuristic-driven strategies across different team sizes. The web interface provides
-                a controlled setting to reproduce benchmark conditions and visualize agent behavior.
-              </p>
+              <div className="text-mg-cream font-bold text-lg">{t('researchContext')}</div>
+              <p className="text-mg-cream/80 mt-2 text-sm leading-relaxed">{t('researchBlurb')}</p>
             </div>
 
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
-              <div className="text-mg-cream font-bold text-lg">Credits</div>
+              <div className="text-mg-cream font-bold text-lg">{t('credits')}</div>
               <ul className="text-mg-cream/80 mt-2 text-sm list-disc list-inside space-y-1">
-                <li>Thesis Author: Amparo Oliver</li>
-                <li>Advisor(s): PhD. Luca Cernuzzi</li>
-                <li>Special thanks to the creator of the game, Alberto Bogliaccini</li>
+                <li>{t('thesisAuthor')}</li>
+                <li>{t('advisors')}</li>
+                <li>{t('thanksCreator')}</li>
               </ul>
             </div>
           </motion.div>
@@ -59,23 +57,23 @@ const About = () => {
             className="space-y-4"
           >
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
-              <div className="text-mg-cream font-bold text-lg">Repositories</div>
+              <div className="text-mg-cream font-bold text-lg">{t('repositories')}</div>
               <div className="grid gap-3 mt-3">
-                <LinkCard title="Web Frontend" href="https://github.com/amparooliver/mastergoal-play/tree/main/frontend" desc="React + Vite + Tailwind + Framer Motion" />
-                <LinkCard title="Flask Backend" href="https://github.com/amparooliver/mastergoal-play/tree/main/backend" desc="REST API exposing Mastergoal tournament system" />
-                <LinkCard title="Tournament System" href="https://github.com/amparooliver/tournament-system-Mastergoal" desc="Core game logic and AI agents (MCTS, Minimax, Heuristics)" />
+                <LinkCard title={t('webFrontend')} href="https://github.com/amparooliver/mastergoal-play/tree/main/frontend" desc="React + Vite + Tailwind + Framer Motion" />
+                <LinkCard title={t('flaskBackend')} href="https://github.com/amparooliver/mastergoal-play/tree/main/backend" desc="REST API exposing Mastergoal tournament system" />
+                <LinkCard title={t('tournamentSystem')} href="https://github.com/amparooliver/tournament-system-Mastergoal" desc="Core game logic and AI agents (MCTS, Minimax, Heuristics)" />
               </div>
             </div>
 
             <div className="p-6 rounded-2xl bg-mg-brown/40 backdrop-blur border border-mg-cream/10">
-              <div className="text-mg-cream font-bold text-lg">Contact</div>
-              <div className="text-mg-cream/80 mt-2 text-sm">Email: amparooliverb@gmail.com</div>
+              <div className="text-mg-cream font-bold text-lg">{t('contact')}</div>
+              <div className="text-mg-cream/80 mt-2 text-sm">{t('email')}: amparooliverb@gmail.com</div>
             </div>
           </motion.div>
         </div>
 
         <div className="mt-12 text-center">
-          <a href="/" className="text-mg-cream/90 underline underline-offset-4 hover:text-mg-cream">Return to Home</a>
+          <a href="/" className="text-mg-cream/90 underline underline-offset-4 hover:text-mg-cream">{t('returnHome')}</a>
         </div>
       </div>
     </div>

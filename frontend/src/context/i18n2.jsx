@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';const LanguageContext = createContext({ lang: 'en', t: (k) => k, setLang: () => {} });const DICT = {
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+
+const LanguageContext = createContext({ lang: 'en', t: (k) => k, setLang: () => {} });
+
+const DICT = {
   en: {
     playNow: 'Play Now',
     howToPlay: 'How to Play',
@@ -53,7 +57,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
     ruleBasicsTitle: 'Objective',
     ruleBasicsLead: 'Score goals to win. Control space, pass smartly, and shoot through the central goal area.',
     ruleBasicsItems: [
-      'Pitch is 15 rows × 11 columns. Middle band contains both goal mouths.',
+      'Pitch is 15 rows \u00D7 11 columns. Middle band contains both goal mouths.',
       'Teams: LEFT vs RIGHT. Turns alternate by team.',
       'On your turn you either move a chip or kick the ball (if in possession).',
       'Game may end on a goal or by tournament termination rules.'
@@ -76,7 +80,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
     ],
     ruleScoreLabel: 'Scoring',
     ruleScoreTitle: 'How to Score',
-    ruleScoreLead: 'Shoot the ball into the opponent’s goal band (middle columns 3–7).',
+    ruleScoreLead: 'Shoot the ball into the opponent\'s goal band (middle columns 3\u20137).',
     ruleScoreItems: [
       'Left team scores at top goal; Right team scores at bottom goal.',
       'Only the central five columns count as the goal mouth.',
@@ -100,10 +104,10 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
   },
   es: {
     playNow: 'Jugar Ahora',
-    howToPlay: 'Cómo Jugar',
+    howToPlay: 'C\u00F3mo Jugar',
     about: 'Acerca de',
-    gameSettings: 'Configuración del Juego',
-    gameConfiguration: 'Configuración del Juego',
+    gameSettings: 'Configuraci\u00F3n del Juego',
+    gameConfiguration: 'Configuraci\u00F3n del Juego',
     mode: 'Modo',
     onePlayer: '1 Jugador (vs IA)',
     onePlayerShort: '1 JUGADOR',
@@ -115,12 +119,12 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
     level: 'Nivel',
     teamColors: 'Colores del Equipo',
     yourTeam: 'Tu Equipo',
-    you: 'Tú',
+    you: 'T\u00FA',
     ai: 'IA',
     start: 'Comenzar Juego',
     startShort: 'Comenzar',
     advancedConfigurations: 'Configuraciones Avanzadas',
-    leftYouStart: 'Izquierda (Tú empiezas)',
+    leftYouStart: 'Izquierda (T\u00FA empiezas)',
     rightAIStarts: 'Derecha (IA empieza)',
     timer: 'Temporizador',
     turnTimer: 'Temporizador por Turno',
@@ -130,62 +134,62 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
     minutes: 'minutos',
     seconds: 'segundos',
     turn: 'Turno',
-    homeConfirmTitle: '¿Salir del Juego?',
-    homeConfirmText: 'Estás a punto de salir del juego. ¿Estás seguro?',
+    homeConfirmTitle: '\u00BFSalir del Juego?',
+    homeConfirmText: 'Est\u00E1s a punto de salir del juego. \u00BfEst\u00E1s seguro?',
     cancel: 'Cancelar',
     leave: 'Salir',
     save: 'Guardar',
     close: 'Cerrar',
     helpTitle: 'Ayuda',
-    helpText: 'Selecciona una ficha o la pelota; haz clic en las casillas resaltadas para mover o patear. Hay pateo forzado cuando estás adyacente y la pelota no es neutral.',
-    configTitle: 'Configuración del Juego',
-    landingTagline: 'Un juego de estrategia que combina la emoción del fútbol con decisiones tácticas profundas y posicionamiento inteligente.',
+    helpText: 'Selecciona una ficha o la pelota; haz clic en las casillas resaltadas para mover o patear. Hay pateo forzado cuando est\u00E1s adyacente y la pelota no es neutral.',
+    configTitle: 'Configuraci\u00F3n del Juego',
+    landingTagline: 'Un juego de estrategia que combina la emoci\u00F3n del f\u00FAtbol con decisiones t\u00E1cticas profundas y posicionamiento inteligente.',
     pitchGrid: 'Rejilla del Campo',
     difficultyLevels: 'Niveles de Dificultad',
     realTime: 'En tiempo real',
     turnFeedback: 'Indicador de Turno',
-    learnMoreThesis: 'Conoce la tesis y el contexto de investigación',
+    learnMoreThesis: 'Conoce la tesis y el contexto de investigaci\u00F3n',
     ruleBook: 'Libro de Reglas',
-    ruleObjectiveBanner: 'Objetivo: ¡Anota goles para ganar!',
+    ruleObjectiveBanner: 'Objetivo: \u00A1Anota goles para ganar!',
     ruleDetails: 'Detalles',
-    ruleBasicsLabel: 'Básicos',
+    ruleBasicsLabel: 'B\u00E1sicos',
     ruleBasicsTitle: 'Objetivo',
     ruleBasicsLead: 'Anota goles para ganar. Controla espacios, pasa con inteligencia y dispara hacia la zona central del arco.',
     ruleBasicsItems: [
-      'El campo es de 15 filas × 11 columnas. La franja central contiene las porterías.',
+      'El campo es de 15 filas \u00D7 11 columnas. La franja central contiene las porter\u00EDas.',
       'Equipos: IZQUIERDA vs DERECHA. Los turnos alternan por equipo.',
       'En tu turno mueves una ficha o pateas la pelota (si la posees).',
       'El juego termina con un gol o por reglas del torneo.'
     ],
     ruleMoveLabel: 'Movimiento',
-    ruleMoveTitle: 'Cómo Mover',
-    ruleMoveLead: 'Selecciona una ficha y muévela a una casilla válida adyacente.',
+    ruleMoveTitle: 'C\u00F3mo Mover',
+    ruleMoveLead: 'Selecciona una ficha y mu\u00E9vela a una casilla v\u00E1lida adyacente.',
     ruleMoveItems: [
-      'Los destinos legales se resaltan; las bandas exteriores están fuera de juego.',
-      'No puedes entrar en casillas exteriores más allá del borde crema.',
-      'Al caer sobre la pelota tomas posesión salvo si aplica pateo forzado.'
+      'Los destinos legales se resaltan; las bandas exteriores est\u00E1n fuera de juego.',
+      'No puedes entrar en casillas exteriores m\u00E1s all\u00E1 del borde crema.',
+      'Al caer sobre la pelota tomas posesi\u00F3n salvo si aplica pateo forzado.'
     ],
     ruleKickLabel: 'Pateo',
     ruleKickTitle: 'Patear y Pasar',
     ruleKickLead: 'Si tu ficha tiene la pelota, patea a cualquier casilla alcanzable resaltada.',
     ruleKickItems: [
-      'Los tiros siguen líneas rectas hasta chocar; el servidor valida la legalidad.',
+      'Los tiros siguen l\u00EDneas rectas hasta chocar; el servidor valida la legalidad.',
       'Puede haber pateo forzado al estar adyacente y la pelota no ser neutral.',
-      'Crea ángulos para abrir línea de disparo hacia el arco central.'
+      'Crea \u00E1ngulos para abrir l\u00EDnea de disparo hacia el arco central.'
     ],
     ruleScoreLabel: 'Anotar',
-    ruleScoreTitle: 'Cómo Anotar',
-    ruleScoreLead: 'Dispara la pelota dentro de la banda de gol rival (columnas 3–7).',
+    ruleScoreTitle: 'C\u00F3mo Anotar',
+    ruleScoreLead: 'Dispara la pelota dentro de la banda de gol rival (columnas 3\u20137).',
     ruleScoreItems: [
       'El equipo IZQUIERDA anota en el arco superior; DERECHA en el inferior.',
       'Solo cuentan las cinco columnas centrales como arco.',
-      'Tras un gol, el juego se reinicia según el torneo.'
+      'Tras un gol, el juego se reinicia seg\u00FAn el torneo.'
     ],
     configureMatch: 'Configurar una Partida',
     aboutTitle: 'Acerca de esta Tesis',
-    researchContext: 'Contexto de Investigación',
-    researchBlurb: 'Este proyecto evalúa agentes de IA competitivos en un entorno de fútbol por turnos (Mastergoal), comparando Minimax, MCTS y estrategias heurísticas en distintos tamaños de equipo. La web permite reproducir condiciones de prueba y visualizar el comportamiento de los agentes.',
-    credits: 'Créditos',
+    researchContext: 'Contexto de Investigaci\u00F3n',
+    researchBlurb: 'Este proyecto eval\u00FAa agentes de IA competitivos en un entorno de f\u00FAtbol por turnos (Mastergoal), comparando Minimax, MCTS y estrategias heur\u00EDsticas en distintos tama\u00F1os de equipo. La web permite reproducir condiciones de prueba y visualizar el comportamiento de los agentes.',
+    credits: 'Cr\u00E9ditos',
     thesisAuthor: 'Autora de la tesis: Amparo Oliver',
     advisors: 'Director(es): PhD. Luca Cernuzzi',
     thanksCreator: 'Agradecimientos al creador del juego, Alberto Bogliaccini',
@@ -197,4 +201,18 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
     email: 'Correo',
     returnHome: 'Volver al Inicio',
   }
-};export const LanguageProvider = ({ children }) => {  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'en');  useEffect(() => { try { localStorage.setItem('lang', lang); } catch {} }, [lang]);  const t = useMemo(() => (key) => (DICT[lang] && DICT[lang][key]) || key, [lang]);  return (    <LanguageContext.Provider value={{ lang, setLang, t }}>      {children}    </LanguageContext.Provider>  );};export const useI18n = () => useContext(LanguageContext);
+};
+
+export const LanguageProvider = ({ children }) => {
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'en');
+  useEffect(() => { try { localStorage.setItem('lang', lang); } catch {} }, [lang]);
+  const t = useMemo(() => (key) => (DICT[lang] && DICT[lang][key]) ?? (DICT['en'][key] ?? key), [lang]);
+  return (
+    <LanguageContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+export const useI18n = () => useContext(LanguageContext);
+

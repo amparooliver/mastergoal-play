@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
 import Modal from '../components/Modal.jsx';
+import { useI18n } from '../context/i18n2';
 
 const Game = ({ gameId, initialState }) => {
   const [gameState, setGameState] = useState(initialState?.gameState || null);
@@ -18,6 +19,7 @@ const Game = ({ gameId, initialState }) => {
   const aiSequenceEnd = useRef(null);
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
+  const { t } = useI18n();
 
   const ROWS = 15;
   const COLS = 11;
@@ -38,8 +40,8 @@ const Game = ({ gameId, initialState }) => {
   const AI_TEAM = HUMAN_TEAM === 'LEFT' ? 'RIGHT' : 'LEFT';
 
   const timerEnabled = !!sessionConfig?.timerEnabled;
-  const timerMinutes = sessionConfig?.timerMinutes ?? 0;
-  const [secondsLeft, setSecondsLeft] = useState(timerEnabled ? timerMinutes * 60 : 0);
+  const timerSeconds = (sessionConfig?.timerSeconds ?? (sessionConfig?.timerMinutes ?? 0) * 60) || 0;
+  const [secondsLeft, setSecondsLeft] = useState(timerEnabled ? timerSeconds : 0);
 
   // Orientation: landscape if viewport wide enough
   const [isLandscape, setIsLandscape] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -164,11 +166,11 @@ const Game = ({ gameId, initialState }) => {
   // Timer: simple per-turn countdown UI (client-side only)
   useEffect(() => {
     if (!timerEnabled || gameEnded || activeModal) return;
-    setSecondsLeft(timerMinutes * 60);
+    setSecondsLeft(timerSeconds);
     const id = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentTeam, timerEnabled, gameEnded, activeModal]);
+  }, [gameState?.currentTeam, timerEnabled, gameEnded, activeModal, timerSeconds]);
 
   // When timer hits zero on player's turn, auto-play a random legal move
   useEffect(() => {
@@ -265,20 +267,36 @@ const Game = ({ gameId, initialState }) => {
   };
 
   // UI helpers
-  const ScorePill = () => (
-    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
-      <div className="flex items-center gap-4 bg-mg-brown/90 text-mg-cream px-4 py-1 rounded-full shadow">
-        <span className="text-lg tracking-wide font-bold">YOU</span>
-        <span className="inline-flex items-center bg-mg-sand text-mg-brown font-bold px-3 py-0.5 rounded text-lg">
-          {gameState?.score?.LEFT ?? 0} <span className="mx-1 text-lg">-</span> {gameState?.score?.RIGHT ?? 0}
-        </span>
-        <span className="text-lg tracking-wide font-bold">AI</span>
+  const ScoreBoard = () => {
+    const leftScore = gameState?.score?.LEFT ?? 0;
+    const rightScore = gameState?.score?.RIGHT ?? 0;
+    const leftLabel = MODE === 'pve' && HUMAN_TEAM === 'LEFT' ? 'YOU' : 'LEFT';
+    const rightLabel = MODE === 'pve' && HUMAN_TEAM === 'RIGHT' ? 'YOU' : (MODE === 'pve' ? 'AI' : 'RIGHT');
+    return (
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
+        <div className="flex items-center gap-4 bg-mg-brown/95 text-mg-cream px-3 sm:px-4 py-1.5 rounded-full shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full" style={{ backgroundColor: TEAM_COLORS.LEFT }} />
+            <span className="text-xs sm:text-sm font-semibold tracking-wide">{leftLabel}</span>
+          </div>
+          <div className="inline-flex items-center bg-mg-sand text-mg-brown font-extrabold px-3 py-0.5 rounded text-lg sm:text-xl leading-none">
+            {leftScore}
+            <span className="mx-2">-</span>
+            {rightScore}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm font-semibold tracking-wide">{rightLabel}</span>
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full" style={{ backgroundColor: TEAM_COLORS.RIGHT }} />
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  // Turn indicator: keep simple text below the board
 
   const SideToolbar = () => (
-    <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[180px]">
+    <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[140px]">
       <div className="w-20 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-8 gap-12 shadow-lg">
         <button onClick={() => setActiveModal('home')} title="Home" className="hover:opacity-90">
           <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-8 h-8" />
@@ -318,7 +336,7 @@ const Game = ({ gameId, initialState }) => {
 
   const TimerWidget = () => (
     !timerEnabled ? null : (
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-88px]">
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-160px]">
         <div className="w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg">
           <div className="text-3xl">⏱️</div>
           <div className="text-sm">{secondsLeft}s left</div>
@@ -529,7 +547,7 @@ const Game = ({ gameId, initialState }) => {
                 <TopToolbar />
               </div>
             )}
-            <ScorePill />
+            <ScoreBoard />
             <TimerWidget />
             <div className="bg-mg-brown rounded-xl p-4 relative">
               {(() => {
@@ -580,56 +598,57 @@ const Game = ({ gameId, initialState }) => {
 
       {/* Modals */}
       {activeModal === 'home' && (
-        <Modal title="Leave Game?" onClose={() => setActiveModal(null)}
+        <Modal title={t('homeConfirmTitle')} onClose={() => setActiveModal(null)}
           actions={[
-            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>Cancel</button>,
-            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => navigate('/')}>Leave</button>
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>{t('cancel')}</button>,
+            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => navigate('/')}>{t('leave')}</button>
           ]}
         >
-          <p>You're about to leave the game. Are you sure?</p>
+          <p>{t('homeConfirmText')}</p>
         </Modal>
       )}
       {activeModal === 'help' && (
-        <Modal title="Help" onClose={() => setActiveModal(null)}
+        <Modal title={t('helpTitle')} onClose={() => setActiveModal(null)}
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Close</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('close')}</button>
           ]}
         >
-          <p>Select a chip or the ball; click highlighted cells to move or kick. Forced kicks apply when adjacent and ball is not neutral.</p>
+          <p>{t('helpText')}</p>
         </Modal>
       )}
       {activeModal === 'about' && (
-        <Modal title="About" onClose={() => setActiveModal(null)}
+        <Modal title={t('about')} onClose={() => setActiveModal(null)}
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Close</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('close')}</button>
           ]}
         >
-          <p>This thesis project showcases AI agents (Minimax, MCTS, Heuristics) playing Mastergoal.</p>
+          <p>{t('researchBlurb')}</p>
         </Modal>
       )}
       {activeModal === 'config' && (
-        <Modal title="Game Settings" onClose={() => setActiveModal(null)}
+        <Modal title={t('configTitle')} onClose={() => setActiveModal(null)}
           actions={[
-            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Save</button>
+            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('save')}</button>
           ]}
         >
           <div className="space-y-4">
             <div>
-              <div className="font-semibold mb-1">Timer</div>
+              <div className="font-semibold mb-1">{t('turnTimer')}</div>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" defaultChecked={timerEnabled} onChange={(e) => {
                     const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
                     saved.timerEnabled = e.target.checked; sessionStorage.setItem('gameSession', JSON.stringify(saved));
                   }} />
-                  <span>Enabled</span>
+                  <span>{t('enabled')}</span>
                 </label>
-                <select defaultValue={timerMinutes} className="bg-white/40 px-2 py-1 rounded"
+                <select defaultValue={timerSeconds || 15} className="bg-white/40 px-2 py-1 rounded"
                   onChange={(e) => {
                     const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
-                    saved.timerMinutes = parseInt(e.target.value); sessionStorage.setItem('gameSession', JSON.stringify(saved));
+                    saved.timerSeconds = parseInt(e.target.value);
+                    sessionStorage.setItem('gameSession', JSON.stringify(saved));
                   }}>
-                  {[5,10,15,20].map(m => (<option key={m} value={m}>{m} min</option>))}
+                  {[10,15,20,30,45,60].map(s => (<option key={s} value={s}>{s} {t('seconds')}</option>))}
                 </select>
               </div>
             </div>
