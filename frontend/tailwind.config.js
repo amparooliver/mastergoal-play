@@ -14,7 +14,7 @@ export default {
         'mg-green-3': '#436836',
         'mg-sage': '#A4A77E',
         'mg-sand': '#E6DCB7',
-        'mg-cream': '#F5EFD5',
+        'mg-cream': '#F5EFD5', 
         'mg-blue': '#202C59',
         'mg-orange': '#F18F01',
       },

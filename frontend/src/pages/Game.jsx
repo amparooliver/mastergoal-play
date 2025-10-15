@@ -445,7 +445,11 @@ const Game = ({ gameId, initialState }) => {
 
     }
 
-    if (isLegalMove && !isOutside) cellClass += 'ring-4 ring-mg-sand cursor-pointer hover:brightness-110 ';
+    // Highlight styles for legal moves
+    if (isLegalMove && !isOutside) {
+      // Keep interaction + hover only; visual effect is rendered via overlay element below
+      cellClass += 'cursor-pointer hover:brightness-110 ';
+    }
     if (isSelected) cellClass += 'ring-4 ring-blue-400 ';
     if (isAiMoveFrom) cellClass += 'ring-4 ring-purple-400 ';
     if (isAiMoveTo) cellClass += 'ring-4 ring-purple-600 animate-pulse ';
@@ -488,7 +492,21 @@ const Game = ({ gameId, initialState }) => {
             )}
           </>
         )}
+
+        {/* Legal move overlay visuals (keeps full, even glow around the square) */}
         
+        {isLegalMove && !isOutside && (
+          <>
+            {/* 1) BORDERS ONLY (active) */}
+            <span className="pointer-events-none absolute inset-0 rounded-sm z-10 border-4 border-[#ffbe02]"></span>
+
+            {/* 2) GLOW ONLY — uncomment to try */}
+            {/** <span className="pointer-events-none absolute inset-0 rounded-sm z-10 shadow-[0_0_0_2px_rgba(255,255,255,0.6),0_0_18px_6px_rgba(255,190,2,0.9)]"></span> **/}
+
+            {/* 3) PAINTED ONLY (yellow fill) — uncomment to try */}
+            {/** <span className="pointer-events-none absolute inset-0 rounded-sm z-10 bg-[#ffbe02] opacity-70"></span> **/}
+          </>
+        )}
         {player && !(hideFinalDuringAnim || hideSequenceEnd) && (
           <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
             <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />

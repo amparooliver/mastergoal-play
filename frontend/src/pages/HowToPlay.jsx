@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import ChipIcon from '../components/ChipIcon.jsx';
-import { useI18n } from '../context/i18n2';
 
 const MiniBoard = () => {
   const rows = 5;
@@ -68,45 +67,130 @@ const MiniBoard = () => {
 };
 
 const HowToPlay = () => {
-  const { t } = useI18n();
+  // Tabs (capítulos) estáticos en español
+  const tabs = ["Básicos", "Movimiento", "Pase", "Casillas", "Anotar"];
 
-  const sections = [
-    {
-      key: 'basics',
-      label: t('ruleBasicsLabel'),
-      title: t('ruleBasicsTitle'),
-      lead: t('ruleBasicsLead'),
-      items: t('ruleBasicsItems'),
-      imageSlot: (<img src="/assets/mod2osc.png" alt="diagram" className="w-full h-full object-contain" />),
+  // Contenido por tab: página izquierda y derecha
+  const CONTENT = {
+    "Básicos": {
+      leftTitle: "Objetivo del Juego",
+      leftText: (
+        <>
+          Mastergoal es un juego de fútbol trasladado a un tablero.
+          Dos equipos compiten con el objetivo de meter la pelota en el arco rival.
+        </>
+      ),
+      leftImage: <img src="/assets/mod3osc.png" alt="tablero" className="w-full h-full object-contain" />,
+      rightTitle: "Comienzo del Partido",
+      rightItems: [
+        "Las cantidad de fichas dependen de la modalidad de juego: 1v1, 2v2 o 5v5.",
+        "La pelota se ubica en el centro.",
+        "El equipo ubicado a la izquierda (o arriba, si el tablero está en modo vertical) comienza la partida.",
+        "Gana el equipo que anote dos goles primero.",
+      ],
+      rightImage: (
+        <img
+          src="/assets/casillasespeciales.png"
+          alt="casillas especiales"
+          className="w-full md:w-4/5 lg:w-3/4 h-auto mx-auto object-contain mt-3"
+        />
+      ),
     },
-    {
-      key: 'movement',
-      label: t('ruleMoveLabel'),
-      title: t('ruleMoveTitle'),
-      lead: t('ruleMoveLead'),
-      items: t('ruleMoveItems'),
-      imageSlot: (<img src="/assets/MovValidosOscuro.png" alt="movement" className="w-3/4 h-auto mx-auto object-contain" />),
+    "Movimiento": {
+      leftTitle: "Jugador",
+      leftText: (
+        <>
+          • Se mueve en cualquier dirección (adelante, atrás, diagonal o lateral).
+          <br />
+          • Hasta 2 casillas por turno, siempre en línea recta.
+        </>
+      ),
+      leftImage: <img src="/assets/jugador.png" alt="movimientos jugador" className="w-full h-full object-contain" />,
+      rightTitle: "Arquero",
+      rightItems: [
+        "Se mueve igual que un jugador.",
+        "Posee “brazos” laterales que bloquean el paso de la pelota o de otros jugadores.",
+        "Las casillas adyacentes a sus brazos le pertenecen y no pueden ser ocupadas por jugadores rivales.",
+      ],
+      rightImage: (
+        <img
+          src="/assets/arquero.png"
+          alt="arquero"
+          className="w-3/4 md:w-1/2 lg:w-2/5 h-auto mx-auto object-contain mt-3"
+        />
+      ),
     },
-    {
-      key: 'kick',
-      label: t('ruleKickLabel'),
-      title: t('ruleKickTitle'),
-      lead: t('ruleKickLead'),
-      items: t('ruleKickItems'),
-      imageSlot: (<MiniBoard />),
+    "Pase": {
+      leftTitle: "La Pelota",
+      leftText: (
+        <>
+          • La pelota nunca se mueve sola: debe ser impulsada por un jugador o arquero.
+          <br />
+          • Se mueve en línea recta hasta 4 casillas (1–4) en cualquier dirección.
+          <br />
+          • Solo puede “saltar” jugadores o arquero si están dentro del área chica.
+          <br />
+          • Dentro de su área, el arquero tiene prioridad sobre la pelota.
+        </>
+      ),
+      leftImage: <img src="/assets/pelotaa.png" alt="movimientos pelota" className="w-full h-full object-contain" />,
+      rightTitle: "Pases",
+      rightItems: [
+        "En cada turno debe moverse al menos un jugador o la pelota.",
+        "La pelota puede moverse hasta 4 veces por turno (pases entre jugadores).",
+        "No es obligatorio usar los 4 movimientos.",
+        "Los pases solo pueden hacerse entre jugadores del mismo equipo adyacentes a la pelota.",
+        "No se permiten autopases (el mismo jugador no puede empujar y recibir la pelota).",
+      ],
+      rightImage: (
+        <img
+          src="/assets/pases.png"
+          alt="pases"
+          className="w-full md:w-4/5 lg:w-3/4 h-auto mx-auto object-contain mt-3"
+        />
+      ),
     },
-    {
-      key: 'score',
-      label: t('ruleScoreLabel'),
-      title: t('ruleScoreTitle'),
-      lead: t('ruleScoreLead'),
-      items: t('ruleScoreItems'),
-      imageSlot: (<img src="/assets/mod3osc.png" alt="scoring" className="w-full h-auto mx-auto object-contain" />),
+    "Casillas": {
+      leftTitle: "Casillas Neutras",
+      leftText: (
+        <>
+          • La pelota no se puede mover ya que no pertenecen a ningún equipo.
+          <br />
+          • Cuando un equipo tiene mayoría de jugadores junto a la pelota, deja de ser neutra y la pelota pasa a su control.
+        </>
+      ),
+      leftImage: <img src="/assets/casillaneutra.png" alt="casillas neutras" className="w-full h-full object-contain" />,
+      rightTitle: "Casillas Especiales",
+      rightItems: [
+        "Son las marcadas con puntos blancos en la línea de fondo contraria.",
+        "Si un jugador coloca la pelota allí, obtiene un turno adicional.",
+        "Las casillas de corner propias no pueden ser ocupadas por la pelota.",
+      ],
     },
-  ];
+    "Anotar": {
+      leftTitle: "Gol",
+      leftText: (
+        <>
+          • Se produce cuando la pelota entra en una casilla del arco.
+          <br />
+          • Puede hacerlo en movimiento recto o diagonal.
+          <br />
+          • Después del gol, todas las fichas vuelven a su posición inicial.
+          <br />
+          • El equipo que recibió el gol inicia el siguiente turno.
+        </>
+      ),
+      leftImage: <img src="/assets/ScoreGoal.png" alt="gol" className="w-full h-full object-contain" />,
+      rightTitle: "Reinicio",
+      rightItems: [
+        "Tras un gol, se recolocan todas las fichas y la pelota vuelve al centro del tablero.",
+        "El equipo que recibió el gol comienza el siguiente turno.",
+      ],
+    },
+  };
 
-  const [active, setActive] = useState(sections[0].key);
-  const current = sections.find(s => s.key === active) || sections[0];
+  const [active, setActive] = useState(tabs[0]);
+  const current = CONTENT[active] || CONTENT[tabs[0]];
 
   return (
     <div className="min-h-screen bg-mg-green-1 py-10 md:py-16 overflow-x-hidden">
@@ -117,7 +201,7 @@ const HowToPlay = () => {
           transition={{ duration: 0.4 }}
           className="text-4xl md:text-5xl font-extrabold text-mg-sand text-center"
         >
-          {t('ruleBook')}
+          Libro de Reglas
         </motion.h1>
 
         <div className="mt-8 md:mt-12 relative flex justify-center">
@@ -128,23 +212,33 @@ const HowToPlay = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
                 <div className="rounded-2xl bg-[#F6F1DE] text-mg-brown p-6 md:p-8 min-h-[420px] flex flex-col">
-                  <div className="text-sm font-semibold uppercase tracking-wide text-mg-green-3">{t('ruleObjectiveBanner')}</div>
-                  <div className="mt-3 text-3xl md:text-4xl font-extrabold text-mg-green-3">{current.title}</div>
-                  <p className="mt-3 text-mg-brown/80 leading-relaxed text-sm">{current.lead}</p>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-mg-green-3">Objetivo: ¡Anotar goles para ganar!</div>
+                  <div className="mt-3 text-3xl md:text-4xl font-extrabold text-mg-green-3">{current.leftTitle}</div>
+                  <p className="mt-3 text-mg-brown/80 leading-relaxed text-sm">{current.leftText}</p>
 
                   <div className="mt-6 flex-1 flex items-center justify-center">
                     <div className="w-full">
-                      {current.imageSlot}
+                      {current.leftImage}
                     </div>
                   </div>
                 </div>
 
                 <div className="relative rounded-2xl bg-[#F6F1DE] text-mg-brown p-6 md:p-8 min-h-[420px] overflow-y-auto">
-                  <div className="text-2xl font-bold text-mg-green-3 mb-4">{t('ruleDetails')}</div>
-                  {Array.isArray(current.items) ? (
+                  <div className="mt-3 text-3xl md:text-4xl font-extrabold text-mg-green-3">{current.rightTitle}</div>
+                  {Array.isArray(current.rightItems) ? (
                     <ul className="text-sm text-mg-brown/85 leading-relaxed list-disc list-inside space-y-2">
-                      {current.items.map((it, i) => (
-                        <li key={i}>{it}</li>
+                      {current.rightItems.map((it, i) => (
+                        <React.Fragment key={i}>
+                          <li>{it}</li>
+                          {current.rightTitle === 'Casillas Especiales' &&
+                            typeof it === 'string' &&
+                            it.trim() === 'Las casillas de corner propias no pueden ser ocupadas por la pelota.' &&
+                            current.rightImage && (
+                              <div className="mt-4 -mx-2 md:-mx-4">
+                                {current.rightImage}
+                              </div>
+                            )}
+                        </React.Fragment>
                       ))}
                     </ul>
                   ) : null}
@@ -152,16 +246,16 @@ const HowToPlay = () => {
               </div>
 
               <div className="hidden md:flex flex-col gap-2 absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2">
-                {sections.map(s => (
+                {tabs.map(tab => (
                   <button
-                    key={s.key}
-                    onClick={() => setActive(s.key)}
+                    key={tab}
+                    onClick={() => setActive(tab)}
                     className={`px-3 py-3 rounded-r-xl shadow font-semibold text-sm transition-all ${
-                      active === s.key ? 'bg-mg-orange text-mg-brown' : 'bg-mg-green-2 text-mg-cream/90 hover:brightness-110'
+                      active === tab ? 'bg-mg-orange text-mg-brown' : 'bg-mg-green-2 text-mg-cream/90 hover:brightness-110'
                     }`}
-                    aria-pressed={active === s.key}
+                    aria-pressed={active === tab}
                   >
-                    {s.label}
+                    {tab}
                   </button>
                 ))}
               </div>
@@ -170,22 +264,22 @@ const HowToPlay = () => {
         </div>
 
         <div className="md:hidden mt-6 flex items-center justify-center gap-2 flex-wrap">
-          {sections.map(s => (
+          {tabs.map(tab => (
             <button
-              key={s.key}
-              onClick={() => setActive(s.key)}
+              key={tab}
+              onClick={() => setActive(tab)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                active === s.key ? 'bg-mg-cream text-mg-brown' : 'bg-white/10 text-mg-cream border border-white/20'
+                active === tab ? 'bg-mg-cream text-mg-brown' : 'bg-white/10 text-mg-cream border border-white/20'
               }`}
             >
-              {s.label}
+              {tab}
             </button>
           ))}
         </div>
 
         <div className="mt-10 text-center">
           <a href="/config" className="inline-flex items-center justify-center rounded-xl bg-mg-cream text-green-900 font-semibold px-8 py-3 shadow hover:bg-yellow-300 transition">
-            {t('configureMatch')}
+            Configurar Partida
           </a>
         </div>
       </div>
@@ -194,4 +288,3 @@ const HowToPlay = () => {
 };
 
 export default HowToPlay;
-
