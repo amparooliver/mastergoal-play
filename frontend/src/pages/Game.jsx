@@ -157,7 +157,7 @@ const Game = ({ gameId, initialState }) => {
     if (!gameState) return;
     const gid = resolvedGameId || gameId;
     if (!gid) return;
-    if (MODE === 'pve' && gameState.currentTeam === AI_TEAM && !isLoading && !isAnimatingAi) {
+    if (MODE === 'pve' && gameState.currentTeam === AI_TEAM && !isLoading && !isAnimatingAi && !activeModal) {
       fetchGameState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,6 +188,7 @@ const Game = ({ gameId, initialState }) => {
   // Handle cell click
   const handleCellClick = async (row, col) => {
     if (isLoading || gameEnded || !gameState || isAnimatingAi) return;
+    if (activeModal) return;
     if (MODE === 'pve' && gameState.currentTeam !== HUMAN_TEAM) return; // block input if it's AI's turn
 
     const piece = gameState.players?.find(p => p.position.row === row && p.position.col === col);
@@ -298,19 +299,19 @@ const Game = ({ gameId, initialState }) => {
   const SideToolbar = () => (
     <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[140px]">
       <div className="w-20 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-8 gap-12 shadow-lg">
-        <button onClick={() => setActiveModal('home')} title="Home" className="hover:opacity-90">
+        <button onClick={() => setActiveModal('home')} title="Inicio" className="hover:opacity-90">
           <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-8 h-8" />
         </button>
-        <button onClick={() => setActiveModal('pause')} title="Pause" className="hover:opacity-90">
+        <button onClick={() => setActiveModal('pause')} title="Pausa" className="hover:opacity-90">
           <img src="/assets/PauseVerticalMenu.svg" alt="Pause" className="w-8 h-8" />
         </button>
-        <button onClick={() => setActiveModal('restart')} title="Restart" className="hover:opacity-90">
+        <button onClick={() => setActiveModal('restart')} title="Reiniciar" className="hover:opacity-90">
           <img src="/assets/RestartVerticalMenu.svg" alt="Restart" className="w-8 h-8" />
         </button>
-        <button onClick={() => setActiveModal('help')} title="Help" className="hover:opacity-90">
+        <button onClick={() => setActiveModal('help')} title="Ayuda" className="hover:opacity-90">
           <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-8 h-8" />
         </button>
-        <button onClick={() => setActiveModal('config')} title="Settings" className="hover:opacity-90">
+        <button onClick={() => setActiveModal('config')} title="Configuraci�n" className="hover:opacity-90">
           <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-8 h-8" />
         </button>
 
@@ -321,14 +322,14 @@ const Game = ({ gameId, initialState }) => {
   // Horizontal toolbar for small/vertical screens
   const TopToolbar = () => (
     <div className="flex items-center justify-center gap-5 text-mg-cream">
-      <button onClick={() => setActiveModal('home')} title="Home" className="hover:opacity-90">
+      <button onClick={() => setActiveModal('home')} title="Inicio" className="hover:opacity-90">
         <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-6 h-6" />
       </button>
-      <button onClick={() => setActiveModal('help')} title="Help" className="hover:opacity-90">❓</button>
-      <button onClick={() => setActiveModal('config')} title="Settings" className="hover:opacity-90">
+      <button onClick={() => setActiveModal('help')} title="Ayuda" className="hover:opacity-90">?</button>
+      <button onClick={() => setActiveModal('config')} title="Configuraci�n" className="hover:opacity-90">
         <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-6 h-6" />
       </button>
-      <button onClick={() => setActiveModal('about')} title="About" className="hover:opacity-90">
+      <button onClick={() => setActiveModal('about')} title="Acerca de" className="hover:opacity-90">
         <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-6 h-6" />
       </button>
     </div>
@@ -338,7 +339,7 @@ const Game = ({ gameId, initialState }) => {
     !timerEnabled ? null : (
       <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-160px]">
         <div className="w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg">
-          <div className="text-3xl">⏱️</div>
+          <div className="text-3xl">??</div>
           <div className="text-sm">{secondsLeft}s left</div>
         </div>
       </div>
@@ -500,10 +501,10 @@ const Game = ({ gameId, initialState }) => {
             {/* 1) BORDERS ONLY (active) */}
             <span className="pointer-events-none absolute inset-0 rounded-sm z-10 border-4 border-[#ffbe02]"></span>
 
-            {/* 2) GLOW ONLY � uncomment to try */}
+            {/* 2) GLOW ONLY ? uncomment to try */}
             {/** <span className="pointer-events-none absolute inset-0 rounded-sm z-10 shadow-[0_0_0_2px_rgba(255,255,255,0.6),0_0_18px_6px_rgba(255,190,2,0.9)]"></span> **/}
 
-            {/* 3) PAINTED ONLY (yellow fill) � uncomment to try */}
+            {/* 3) PAINTED ONLY (yellow fill) ? uncomment to try */}
             {/** <span className="pointer-events-none absolute inset-0 rounded-sm z-10 bg-[#ffbe02] opacity-70"></span> **/}
           </>
         )}
@@ -625,15 +626,40 @@ const Game = ({ gameId, initialState }) => {
           <p>{t('homeConfirmText')}</p>
         </Modal>
       )}
-      {activeModal === 'help' && (
-        <Modal title={t('helpTitle')} onClose={() => setActiveModal(null)}
+
+      {activeModal === 'pause' && (
+        <Modal title="Pausa" onClose={() => setActiveModal(null)}
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('close')}</button>
+            <button key="resume" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Continuar</button>
           ]}
         >
-          <p>{t('helpText')}</p>
+          <p className="text-mg-brown">La partida esta pausada. Cerra para continuar jugando.</p>
         </Modal>
       )}
+
+      {activeModal === 'restart' && (
+        <Modal title="¿Reiniciar partida?" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>Cancelar</button>,
+            <button key="restart" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { setActiveModal(null); restartGame(); }}>Reiniciar</button>
+          ]}
+        >
+          <p className="text-mg-brown">Esto reiniciará el tablero y el marcador. ¿Estás seguro?</p>
+        </Modal>
+      )}
+
+      {activeModal === 'help' && (
+        <Modal title="Libro de Reglas" onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Cerrar</button>
+          ]}
+        >
+          <div className="w-[80vw] max-w-4xl h-[75vh]">
+            <iframe src="/how-to-play" title="Libro de Reglas" className="w-full h-full rounded" />
+          </div>
+        </Modal>
+      )}
+
       {activeModal === 'about' && (
         <Modal title={t('about')} onClose={() => setActiveModal(null)}
           actions={[
@@ -643,13 +669,14 @@ const Game = ({ gameId, initialState }) => {
           <p>{t('researchBlurb')}</p>
         </Modal>
       )}
+
       {activeModal === 'config' && (
         <Modal title={t('configTitle')} onClose={() => setActiveModal(null)}
           actions={[
             <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('save')}</button>
           ]}
         >
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <div className="font-semibold mb-1">{t('turnTimer')}</div>
               <div className="flex items-center gap-3">
@@ -670,27 +697,30 @@ const Game = ({ gameId, initialState }) => {
                 </select>
               </div>
             </div>
+
+            <div>
+              <div className="font-semibold mb-1">{t('maxTurns')}</div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" defaultChecked={(function(){ try { return !!JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurnsEnabled } catch(e){ return false } })()} onChange={(e) => {
+                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+                    saved.maxTurnsEnabled = e.target.checked; sessionStorage.setItem('gameSession', JSON.stringify(saved));
+                  }} />
+                  <span>{t('enabled')}</span>
+                </label>
+                <input type="number" min={10} max={300} step={5}
+                  defaultValue={(function(){ try { return JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurns || 60 } catch(e){ return 60 } })()}
+                  className="w-28 bg-white/40 px-2 py-1 rounded border border-mg-cream/20"
+                  onChange={(e) => {
+                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+                    saved.maxTurns = parseInt(e.target.value || '0'); sessionStorage.setItem('gameSession', JSON.stringify(saved));
+                  }} />
+              </div>
+            </div>
           </div>
         </Modal>
-      )}
-
-      {/* Game Over Modal */}
-      {gameEnded && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-mg-cream rounded-lg p-8 max-w-md text-mg-brown">
-            <h2 className="text-3xl font-bold mb-4 text-center">{winner === 'DRAW' ? 'Draw!' : `${winner} Wins!`}</h2>
-            <div className="text-center mb-6">
-              <p className="text-xl">Final Score</p>
-              <p className="text-2xl font-bold">{gameState.score.LEFT} - {gameState.score.RIGHT}</p>
-            </div>
-            <div className="flex gap-4">
-              <button onClick={restartGame} className="flex-1 bg-mg-sage text-mg-brown px-4 py-2 rounded-lg font-bold">Play Again</button>
-              <button onClick={() => navigate('/config')} className="flex-1 bg-mg-brown text-mg-cream px-4 py-2 rounded-lg font-bold">New Game</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      )}{/* Game Over Modal */}
+      
       {/* Loading Overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-40">
