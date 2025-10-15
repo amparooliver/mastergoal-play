@@ -17,6 +17,17 @@ const Game = ({ gameId, initialState }) => {
   const aiAnimTimer = useRef(null);
   const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
   const aiSequenceEnd = useRef(null);
+  // Drag and drop state
+  const [dragging, setDragging] = useState({ active: false, from: null, type: null }); // type: 'piece' | 'ball'
+  const [hoverCell, setHoverCell] = useState(null); // {row, col}
+  // Track AI move sequence to control ball visibility ordering
+  const aiSeqRef = useRef({ moves: [], index: -1, firstKick: -1 });
+
+  // Animation tuning (slower, smoother pacing)
+  const AI_STEP_MS = 420;            // time per grid step for AI overlays
+  const AI_GAP_MS = 450;             // gap between consecutive moves in a sequence
+  const AI_PRE_KICK_PAUSE_MS = 400;  // brief pause before kick to emphasize order
+  const AI_POST_KICK_PAUSE_MS = 300; // brief pause after kick before next move
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
   const { t } = useI18n();
@@ -115,6 +126,55 @@ const Game = ({ gameId, initialState }) => {
 
   const API_BASE = import.meta.env.VITE_API_URL || '';
 
+  // Helpers to map between display coords and model coords
+  const toModelCoords = (dRow, dCol) => ({ row: isLandscape ? dCol : dRow, col: isLandscape ? dRow : dCol });
+
+  // Drag and drop helpers
+  const canStartDragAt = (row, col) => {
+    if (!gameState) return { ok: false };
+    const piece = gameState.players?.find(p => p.position.row === row && p.position.col === col);
+    const onBall = gameState.ball?.row === row && gameState.ball?.col === col;
+    if (piece && piece.team === gameState.currentTeam) {
+      return { ok: true, type: 'piece', piece };
+    }
+    if (onBall) {
+      const kickMoves = (gameState.legalMoves || []).filter(m => (m.type === 'kick') && m.from.row === row && m.from.col === col);
+      if (kickMoves.length) return { ok: true, type: 'ball', piece: { isBall: true, position: { row, col } }, kickMoves };
+    }
+    return { ok: false };
+  };
+
+  const startDragFrom = (row, col) => {
+    const info = canStartDragAt(row, col);
+    if (!info.ok) return false;
+    if (info.type === 'piece') {
+      setSelectedPiece(info.piece);
+      const pieceMoves = (gameState.legalMoves || []).filter(m => m.from.row === row && m.from.col === col);
+      setLegalMoves(pieceMoves);
+    } else {
+      setSelectedPiece(info.piece);
+      const kickMoves = (gameState.legalMoves || []).filter(m => (m.type === 'kick') && m.from.row === row && m.from.col === col);
+      setLegalMoves(kickMoves);
+    }
+    setDragging({ active: true, from: { row, col }, type: info.type });
+    setHoverCell({ row, col });
+    return true;
+  };
+
+  const cancelDrag = () => {
+    setDragging({ active: false, from: null, type: null });
+    setHoverCell(null);
+  };
+
+  const commitDragTo = (target) => {
+    if (!target) { cancelDrag(); return; }
+    const move = (legalMoves || []).find(m => m.to.row === target.row && m.to.col === target.col);
+    cancelDrag();
+    if (move) {
+      executeMove(move);
+    }
+  };
+
   // Fetch game state
   const fetchGameState = async () => {
     const gid = resolvedGameId || gameId;
@@ -157,6 +217,7 @@ const Game = ({ gameId, initialState }) => {
     setIsAnimatingAi(true);
     setAiAnim({ active: true, path, index: 0, type: move.moveType || move.type, team: move.player });
     if (aiAnimTimer.current) clearInterval(aiAnimTimer.current);
+    // Slow down AI step animation for better readability
     aiAnimTimer.current = setInterval(() => {
       setAiAnim(prev => {
         const nextIndex = prev.index + 1;
@@ -169,22 +230,45 @@ const Game = ({ gameId, initialState }) => {
         }
         return { ...prev, index: nextIndex };
       });
-    }, 140);
+    }, AI_STEP_MS);
   };
 
   const animateAiSequence = (moves) => {
     if (!moves || moves.length === 0) return;
     setLastAiMove(moves[moves.length - 1]);
     aiSequenceEnd.current = moves[moves.length - 1].to;
+    aiSeqRef.current = {
+      moves,
+      index: 0,
+      firstKick: moves.findIndex(m => (m.moveType || m.type) === 'kick')
+    };
     let i = 0;
     const next = () => {
       if (i >= moves.length) {
         setIsAnimatingAi(false);
         aiSequenceEnd.current = null;
-        setTimeout(() => setLastAiMove(null), 800);
+        aiSeqRef.current = { moves: [], index: -1, firstKick: -1 };
+        setTimeout(() => setLastAiMove(null), 1000);
         return;
       }
-      animateSingleMove(moves[i], () => { i += 1; next(); });
+      // Add a small delay between consecutive AI moves
+      const move = moves[i];
+      aiSeqRef.current.index = i;
+      const start = () => {
+        animateSingleMove(move, () => {
+          i += 1;
+          const gap = (move.moveType || move.type) === 'kick'
+            ? (AI_GAP_MS + AI_POST_KICK_PAUSE_MS)
+            : AI_GAP_MS;
+          setTimeout(next, gap);
+        });
+      };
+      // Insert a small pause before the kick starts
+      if ((move.moveType || move.type) === 'kick') {
+        setTimeout(start, AI_PRE_KICK_PAUSE_MS);
+      } else {
+        start();
+      }
     };
     next();
   };
@@ -217,7 +301,8 @@ const Game = ({ gameId, initialState }) => {
   // When timer hits zero on player's turn, auto-play a random legal move
   useEffect(() => {
     const humanTeam = sessionConfig?.playerColor;
-    if (!timerEnabled || secondsLeft > 0 || gameEnded || isLoading) return;
+    // Also pause auto-move while AI animation is running to avoid ordering conflicts
+    if (!timerEnabled || secondsLeft > 0 || gameEnded || isLoading || isAnimatingAi) return;
     if (humanTeam && gameState?.currentTeam === humanTeam) {
       const legal = gameState?.legalMoves || [];
       if (legal.length > 0) {
@@ -272,7 +357,7 @@ const Game = ({ gameId, initialState }) => {
         body: JSON.stringify({ moveType: move.type, fromPos: move.from, toPos: move.to })
       });
       const data = await response.json();
-      if (data.success) {
+      if (response.ok && data.success) {
         setGameState(data.gameState);
         setSelectedPiece(null);
         setLegalMoves([]);
@@ -283,6 +368,12 @@ const Game = ({ gameId, initialState }) => {
           setWinner(data.winner);
           setActiveModal('gameover');
         }
+      } else {
+        // Desync or invalid move. Refresh state to recover and clear selection.
+        console.warn('Move rejected', data);
+        try { await fetchGameState(); } catch {}
+        setSelectedPiece(null);
+        setLegalMoves([]);
       }
     } catch (e) {
       console.error('Error executing move:', e);
@@ -425,11 +516,31 @@ const Game = ({ gameId, initialState }) => {
     const showAiOverlayHere = aiActive && aiStepPos && aiStepPos.row === row && aiStepPos.col === col;
     const hideFinalDuringAnim = aiActive && aiFinalPos && aiFinalPos.row === row && aiFinalPos.col === col;
     const hideSequenceEnd = aiActive && aiSequenceEnd.current && aiSequenceEnd.current.row === row && aiSequenceEnd.current.col === col;
+    // If AI sequence includes a upcoming kick, hide the static ball until the kick anim runs
+    const seq = aiSeqRef.current;
+    const firstKickIndex = (seq && typeof seq.firstKick === 'number') ? seq.firstKick : -1;
+    const curSeqIndex = (seq && typeof seq.index === 'number') ? seq.index : -1;
+    const hideBallPreKick = firstKickIndex >= 0 && curSeqIndex >= 0 && (
+      curSeqIndex < firstKickIndex || (curSeqIndex === firstKickIndex && aiActive && aiAnim.type === 'kick')
+    );
 
     const isLegalMove = legalMoves.some(m => m.to.row === row && m.to.col === col);
+    const isHoverTarget = dragging.active && hoverCell && hoverCell.row === row && hoverCell.col === col;
     const isSelected = selectedPiece && selectedPiece.position?.row === row && selectedPiece.position?.col === col;
     const isAiMoveFrom = lastAiMove && lastAiMove.from.row === row && lastAiMove.from.col === col;
     const isAiMoveTo = lastAiMove && lastAiMove.to.row === row && lastAiMove.to.col === col;
+    const isDragOrigin = dragging.active && dragging.from && dragging.from.row === row && dragging.from.col === col;
+    const hideStaticPieceOnDrag = isDragOrigin && dragging.type === 'piece';
+    const hideStaticBallOnDrag = isDragOrigin && dragging.type === 'ball';
+    const hoverIsLegal = isHoverTarget && isLegalMove;
+    let dragTeam = null;
+    if (dragging.active && dragging.type === 'piece') {
+      dragTeam = selectedPiece?.team;
+      if (!dragTeam && dragging.from) {
+        const dp = gameState?.players?.find(p => p.position.row === dragging.from.row && p.position.col === dragging.from.col);
+        dragTeam = dp?.team || null;
+      }
+    }
 
     let cellClass = 'w-full h-full relative flex items-center justify-center ';
     if (isOutside) {
@@ -495,11 +606,12 @@ const Game = ({ gameId, initialState }) => {
       cellClass += 'cursor-pointer hover:brightness-110 ';
     }
     if (isSelected) cellClass += 'ring-4 ring-blue-400 ';
+    if (isHoverTarget && isLegalMove) cellClass += 'ring-4 ring-yellow-400 ';
     if (isAiMoveFrom) cellClass += 'ring-4 ring-purple-400 ';
     if (isAiMoveTo) cellClass += 'ring-4 ring-purple-600 animate-pulse ';
 
     return (
-      <div key={`${dRow}-${dCol}`} className={cellClass} onClick={() => handleCellClick(row, col)}>
+      <div key={`${dRow}-${dCol}`} className={cellClass}>
         {isGoal && (
           <>
             <div className="absolute inset-0 pointer-events-none opacity-40" 
@@ -551,12 +663,12 @@ const Game = ({ gameId, initialState }) => {
             {/** <span className="pointer-events-none absolute inset-0 rounded-sm z-10 bg-[#ffbe02] opacity-70"></span> **/}
           </>
         )}
-        {player && !(hideFinalDuringAnim || hideSequenceEnd) && (
+        {player && !(hideFinalDuringAnim || hideSequenceEnd) && !hideStaticPieceOnDrag && (
           <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
             <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
           </div>
         )}
-        {hasBall && !(hideFinalDuringAnim || hideSequenceEnd) && (
+        {hasBall && !(hideFinalDuringAnim || hideSequenceEnd || hideBallPreKick) && !hideStaticBallOnDrag && (
           <img src="/assets/bw-ball.svg" alt="ball" className="relative z-30 pointer-events-none w-1/2 h-1/2 drop-shadow" />
         )}
         {showAiOverlayHere && (
@@ -565,6 +677,24 @@ const Game = ({ gameId, initialState }) => {
           ) : (
             <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
               <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
+            </div>
+          )
+        )}
+        {/* Ghost preview snapped to hovered cell while dragging */}
+        {dragging.active && isHoverTarget && (
+          dragging.type === 'ball' ? (
+            <div className={`absolute inset-0 flex items-center justify-center pointer-events-none z-40 ${hoverIsLegal ? 'opacity-90' : 'opacity-60'}`}>
+              <img
+                src="/assets/bw-ball.svg"
+                alt="ball-ghost"
+                className={`w-1/2 h-1/2 drop-shadow transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}
+              />
+            </div>
+          ) : (
+            <div className={`absolute inset-0 flex items-center justify-center pointer-events-none z-40 ${hoverIsLegal ? 'opacity-90' : 'opacity-60'}`}>
+              <div className={`w-3/4 h-3/4 transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
+                <ChipIcon color={TEAM_COLORS[dragTeam] || '#FFF'} width="100%" height="100%" />
+              </div>
             </div>
           )
         )}
@@ -624,10 +754,36 @@ const Game = ({ gameId, initialState }) => {
                       gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                       touchAction: 'manipulation'
                     }}
+                    onPointerUp={(e) => {
+                      if (!dragging.active) return;
+                      e.preventDefault();
+                      commitDragTo(hoverCell);
+                    }}
+                    onPointerCancel={() => { if (dragging.active) cancelDrag(); }}
+                    onPointerLeave={() => { if (dragging.active) cancelDrag(); }}
                   >
                     {Array.from({ length: rows }).map((_, r) => (
                       Array.from({ length: cols }).map((_, c) => (
-                        <div key={`${r}-${c}`} onPointerDown={() => handleCellClick(isLandscape ? c : r, isLandscape ? r : c)}>
+                        <div
+                          key={`${r}-${c}`}
+                          onPointerDown={(e) => {
+                            const { row, col } = toModelCoords(r, c);
+                            if (isLoading || gameEnded || !gameState || isAnimatingAi || activeModal) return;
+                            if (MODE === 'pve' && gameState.currentTeam !== HUMAN_TEAM) return;
+                            // Try to start drag; if not eligible, fallback to click behavior
+                            const started = startDragFrom(row, col);
+                            if (!started) {
+                              handleCellClick(row, col);
+                            } else {
+                              e.preventDefault();
+                            }
+                          }}
+                          onPointerEnter={() => {
+                            if (!dragging.active) return;
+                            const { row, col } = toModelCoords(r, c);
+                            setHoverCell({ row, col });
+                          }}
+                        >
                           {/* Each cell fills its grid track; content keeps square via aspect-square wrapper */}
                           <div className="w-full aspect-square">{renderCell(r, c)}</div>
                         </div>
