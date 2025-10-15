@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ChipIcon from '../components/ChipIcon.jsx';
 
@@ -67,6 +68,9 @@ const MiniBoard = () => {
 };
 
 const HowToPlay = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const embedded = ['1', 'true', 'yes'].includes((params.get('embed') || params.get('embedded') || '').toLowerCase());
   // Tabs (capítulos) estáticos en español
   const tabs = ["Básicos", "Movimiento", "Pase", "Casillas", "Anotar"];
 
@@ -277,11 +281,13 @@ const HowToPlay = () => {
           ))}
         </div>
 
-        <div className="mt-10 text-center">
-          <a href="/config" className="inline-flex items-center justify-center rounded-xl bg-mg-cream text-green-900 font-semibold px-8 py-3 shadow hover:bg-yellow-300 transition">
-            Configurar Partida
-          </a>
-        </div>
+        {!embedded && (
+          <div className="mt-10 text-center">
+            <a href="/config" className="inline-flex items-center justify-center rounded-xl bg-mg-cream text-green-900 font-semibold px-8 py-3 shadow hover:bg-yellow-300 transition">
+              Configurar Partida
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

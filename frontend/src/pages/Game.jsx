@@ -665,7 +665,7 @@ const Game = ({ gameId, initialState }) => {
           ]}
         >
           <div className="w-full h-[70vh] overflow-hidden">
-            <iframe src="/how-to-play" title="Libro de Reglas" className="w-full h-full rounded" />
+            <iframe src="/how-to-play?embed=1" title="Libro de Reglas" className="w-full h-full rounded" />
           </div>
         </Modal>
       )}
