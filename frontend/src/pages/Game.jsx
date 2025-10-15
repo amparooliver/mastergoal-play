@@ -12,7 +12,7 @@ const Game = ({ gameId, initialState }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastAiMove, setLastAiMove] = useState(null);
   const [gameEnded, setGameEnded] = useState(false);
-  const [winner, setWinner] = useState(null);
+  const [winner, setWinner] = useState(null); // 'LEFT' | 'RIGHT' | 'DRAW' | null
   const [isAnimatingAi, setIsAnimatingAi] = useState(false);
   const aiAnimTimer = useRef(null);
   const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
@@ -93,6 +93,15 @@ const Game = ({ gameId, initialState }) => {
         setGameState(data.gameState);
         const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
         if (aiMoves.length) animateAiSequence(aiMoves);
+        // If backend marks session completed on AI turn, infer winner and show modal
+        if (data.status === 'completed' && !gameEnded) {
+          const left = data.gameState?.score?.LEFT ?? 0;
+          const right = data.gameState?.score?.RIGHT ?? 0;
+          const inferred = left === right ? 'DRAW' : (left > right ? 'LEFT' : 'RIGHT');
+          setWinner(inferred);
+          setGameEnded(true);
+          setActiveModal('gameover');
+        }
       }
     } catch (e) {
       console.error('Error fetching game state:', e);
@@ -239,6 +248,7 @@ const Game = ({ gameId, initialState }) => {
         if (data.gameEnded) {
           setGameEnded(true);
           setWinner(data.winner);
+          setActiveModal('gameover');
         }
       }
     } catch (e) {
@@ -720,6 +730,44 @@ const Game = ({ gameId, initialState }) => {
           </div>
         </Modal>
       )}{/* Game Over Modal */}
+      {activeModal === 'gameover' && (
+        <Modal
+          title={(function() {
+            if (!winner) return 'Partida terminada';
+            if (winner === 'DRAW') return '¡Empate!';
+            if (MODE === 'pve') {
+              return winner === HUMAN_TEAM ? '¡Felicidades! ¡Ganaste!' : '¡Qué lástima! ¡Perdiste!';
+            }
+            // PvP: show winning side
+            return winner === 'LEFT' ? '¡Gana LEFT!' : '¡Gana RIGHT!';
+          })()}
+          onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="again" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { setActiveModal(null); restartGame(); }}>
+              Jugar otra vez
+            </button>,
+            <button key="exit" className="px-4 py-2 rounded bg-white/30" onClick={() => navigate('/')}>Salir</button>
+          ]}
+        >
+          <p className="text-mg-brown">
+            {(function() {
+              // Detect if draw due to max turns
+              const saved = (() => { try { return JSON.parse(sessionStorage.getItem('gameSession')||'{}'); } catch { return {}; } })();
+              const maxEnabled = !!saved?.maxTurnsEnabled;
+              const maxTurns = saved?.maxTurns || 0;
+              const turnCount = gameState?.turnCount ?? 0;
+              const drawByTurns = winner === 'DRAW' && maxEnabled && maxTurns && turnCount >= maxTurns;
+              if (winner === 'DRAW') {
+                return drawByTurns ? 'Empate por límite de turnos. ¿Jugar otra vez?' : 'Empate. ¿Jugar otra vez?';
+              }
+              if (MODE === 'pve') {
+                return winner === HUMAN_TEAM ? '¡Gran partido! ¿Otra ronda?' : 'Revancha inmediata, ¿te animas?';
+              }
+              return 'La partida ha terminado. ¿Jugar otra vez?';
+            })()}
+          </p>
+        </Modal>
+      )}
       
       {/* Loading Overlay */}
       {isLoading && (
