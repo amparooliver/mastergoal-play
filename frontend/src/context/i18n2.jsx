@@ -114,6 +114,12 @@ const DICT = {
     contact: 'Contact',
     email: 'Email',
     returnHome: 'Return to Home',
+    drawByTurnsExplain: 'Draw by turn limit. Nobody reached 2 goals (win condition).',
+    drawExplain: 'Draw. Nobody reached 2 goals (win condition).',
+    neutralTileTitle: 'Neutral ball',
+    neutralTileBody: "The ball is neutral: you can't kick it. Move a majority of your chips around it to take control.",
+    specialTileTitle: 'Extra turn!',
+    specialTileBody: 'You placed the ball on a special tile — your team plays again.',
   },
   es: {
     playNow: 'Jugar Ahora',
@@ -226,6 +232,12 @@ const DICT = {
     contact: 'Contacto',
     email: 'Correo',
     returnHome: 'Volver al Inicio',
+    drawByTurnsExplain: 'Empate por límite de turnos. Nadie alcanzó 2 goles (condición para ganar).',
+    drawExplain: 'Empate. Nadie alcanzó 2 goles (condición para ganar).',
+    neutralTileTitle: 'Pelota neutral',
+    neutralTileBody: 'La pelota está neutral: no se puede patear. Mueve una mayoría de tus fichas alrededor para tomar el control.',
+    specialTileTitle: '¡Turno extra!',
+    specialTileBody: 'Ubicaste la pelota en una casilla especial — tu equipo juega de nuevo.',
   }
 };
 

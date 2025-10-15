@@ -129,6 +129,31 @@ const Game = ({ gameId, initialState }) => {
   // Helpers to map between display coords and model coords
   const toModelCoords = (dRow, dCol) => ({ row: isLandscape ? dCol : dRow, col: isLandscape ? dRow : dCol });
 
+  // Special tiles helper (reuse the same logic used for white dots)
+  const isSpecialTileForTeam = (row, col, team) => {
+    if (!team && gameState?.currentTeam) team = gameState.currentTeam;
+    if (!team) return false;
+    const isLeft = team === 'LEFT';
+    if (isLeft) {
+      if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) return true;
+      if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) return true;
+    } else {
+      if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) return true;
+      if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) return true;
+    }
+    return false;
+  };
+
+  // Lightweight notice banner (auto-hide)
+  const [notice, setNotice] = useState(null); // { title, body }
+  const noticeTimer = useRef(null);
+  const showNotice = (title, body, ms = 4200) => {
+    setNotice({ title, body });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), ms);
+  };
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
+
   // Drag and drop helpers
   const canStartDragAt = (row, col) => {
     if (!gameState) return { ok: false };
@@ -155,6 +180,9 @@ const Game = ({ gameId, initialState }) => {
       setSelectedPiece(info.piece);
       const kickMoves = (gameState.legalMoves || []).filter(m => (m.type === 'kick') && m.from.row === row && m.from.col === col);
       setLegalMoves(kickMoves);
+      if ((kickMoves || []).length === 0) {
+        showNotice(t('neutralTileTitle'), t('neutralTileBody'));
+      }
     }
     setDragging({ active: true, from: { row, col }, type: info.type });
     setHoverCell({ row, col });
@@ -347,6 +375,8 @@ const Game = ({ gameId, initialState }) => {
       if (kickMoves.length) {
         setLegalMoves(kickMoves);
         setSelectedPiece({ isBall: true, position: { row, col } });
+      } else {
+        showNotice(t('neutralTileTitle'), t('neutralTileBody'));
       }
     }
   };
@@ -355,6 +385,7 @@ const Game = ({ gameId, initialState }) => {
   const executeMove = async (move) => {
     const gid = resolvedGameId || gameId;
     if (!gid) return;
+    const movingTeam = gameState?.currentTeam;
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/game/${gid}/move`, {
@@ -368,6 +399,15 @@ const Game = ({ gameId, initialState }) => {
         setSelectedPiece(null);
         setLegalMoves([]);
         const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
+        // If team kept the turn after a kick to a special tile, surface extra-turn notice
+        try {
+          const kicked = move.type === 'kick';
+          const ballEnd = data.gameState?.ball;
+          const teamKeepsTurn = movingTeam && (data.gameState?.currentTeam === movingTeam);
+          if (kicked && teamKeepsTurn && ballEnd && isSpecialTileForTeam(ballEnd.row, ballEnd.col, movingTeam)) {
+            showNotice(t('specialTileTitle'), t('specialTileBody'));
+          }
+        } catch {}
         if (aiMoves.length) animateAiSequence(aiMoves);
         if (data.gameEnded) {
           setGameEnded(true);
@@ -746,6 +786,14 @@ const Game = ({ gameId, initialState }) => {
               </div>
             )}
             <ScoreBoard />
+            {/* Responsive notice banner */}
+            {notice && (
+              <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 px-3 sm:px-4 py-2 bg-mg-brown/95 text-mg-cream rounded-full shadow-md flex items-center gap-2 max-w-[92vw]">
+                <span className="inline-block text-xs sm:text-sm font-semibold">{notice.title}:</span>
+                <span className="inline-block text-xs sm:text-sm opacity-95">{notice.body}</span>
+                <button className="ml-2 text-mg-cream/80 hover:text-mg-cream text-sm" onClick={() => setNotice(null)} aria-label="Close">×</button>
+              </div>
+            )}
             <TimerWidget />
             <div className="bg-mg-brown rounded-xl p-4 relative">
               {(() => {
@@ -955,7 +1003,7 @@ const Game = ({ gameId, initialState }) => {
               const turnCount = gameState?.turnCount ?? 0;
               const drawByTurns = winner === 'DRAW' && maxEnabled && maxTurns && turnCount >= maxTurns;
               if (winner === 'DRAW') {
-                return drawByTurns ? 'Empate por límite de turnos. ¿Jugar otra vez?' : 'Empate. ¿Jugar otra vez?';
+                return drawByTurns ? t('drawByTurnsExplain') : t('drawExplain');
               }
               if (MODE === 'pve') {
                 return winner === HUMAN_TEAM ? '¡Gran partido! ¿Otra ronda?' : 'Revancha inmediata, ¿te animas?';
