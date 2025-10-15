@@ -557,11 +557,11 @@ const Game = ({ gameId, initialState }) => {
           </div>
         )}
         {hasBall && !(hideFinalDuringAnim || hideSequenceEnd) && (
-          <img src="/assets/bw-ball.svg" alt="ball" className="w-1/2 h-1/2 drop-shadow" />
+          <img src="/assets/bw-ball.svg" alt="ball" className="relative z-30 pointer-events-none w-1/2 h-1/2 drop-shadow" />
         )}
         {showAiOverlayHere && (
           aiAnim.type === 'kick' ? (
-            <img src="/assets/bw-ball.svg" alt="ball-anim" className="w-1/2 h-1/2 drop-shadow pointer-events-none" />
+            <img src="/assets/bw-ball.svg" alt="ball-anim" className="relative z-30 w-1/2 h-1/2 drop-shadow pointer-events-none" />
           ) : (
             <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
               <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
