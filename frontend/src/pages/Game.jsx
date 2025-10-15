@@ -649,12 +649,12 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'help' && (
-        <Modal title="Libro de Reglas" onClose={() => setActiveModal(null)}
+        <Modal title="Libro de Reglas" onClose={() => setActiveModal(null)} contentClassName="max-w-5xl w-[95vw] max-h-[90vh]"
           actions={[
             <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Cerrar</button>
           ]}
         >
-          <div className="w-[80vw] max-w-4xl h-[75vh]">
+          <div className="w-full h-[70vh] overflow-hidden">
             <iframe src="/how-to-play" title="Libro de Reglas" className="w-full h-full rounded" />
           </div>
         </Modal>
