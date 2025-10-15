@@ -24,6 +24,9 @@ const Game = ({ gameId, initialState }) => {
   const ROWS = 15;
   const COLS = 11;
 
+  // Board size that adapts to viewport so it doesn't require scroll in landscape
+  const [boardWidthPx, setBoardWidthPx] = useState(null);
+
   // Read chip colors from session (fallback to palette mapping)
   const sessionConfig = (() => {
     try {
@@ -51,6 +54,36 @@ const Game = ({ gameId, initialState }) => {
     mq.addEventListener?.('change', handler);
     return () => mq.removeEventListener?.('change', handler);
   }, []);
+
+  // Recompute board size to fit viewport (avoid vertical scroll in landscape)
+  useEffect(() => {
+    const recompute = () => {
+      try {
+        const vw = window.innerWidth || 0;
+        const vh = window.innerHeight || 0;
+        // Effective grid dimensions depending on orientation
+        const rows = isLandscape ? 11 : 15;
+        const cols = isLandscape ? 15 : 11;
+        // Horizontal paddings around the grid area (container px-4 + wrapper px-6 + inner p-4)
+        const padX = (16 + 24 + 16) * 2; // = 112px total
+        const availableWidth = Math.max(0, vw - padX);
+        // Vertical chrome/paddings above/below the grid so the full board fits without scroll
+        // Outer py-8 (64) + wrapper pt-12 (48) + pb-6 (24) + inner p-4 (32) + below-turn text (~40)
+        const overheadY = (isLandscape ? 200 : 220); // small buffer; tuneable without layout thrash
+        const availableHeight = Math.max(0, vh - overheadY);
+        // Grid height = gridWidth * rows/cols => gridWidth must be <= availableHeight * cols/rows
+        const widthFromHeight = Math.floor(availableHeight * (cols / rows));
+        // Final width bound by both width and height constraints
+        const target = Math.max(280, Math.min(availableWidth, widthFromHeight));
+        setBoardWidthPx(Number.isFinite(target) ? target : null);
+      } catch {
+        setBoardWidthPx(null);
+      }
+    };
+    recompute();
+    window.addEventListener('resize', recompute);
+    return () => window.removeEventListener('resize', recompute);
+  }, [isLandscape]);
 
   // Cleanup AI animation timer on unmount
   useEffect(() => {
@@ -584,8 +617,10 @@ const Game = ({ gameId, initialState }) => {
                 const cols = isLandscape ? 15 : 11;
                 return (
                   <div
-                    className="grid w-full max-w-[92vw] md:max-w-[900px]"
+                    className="grid"
                     style={{
+                      width: boardWidthPx ? `${boardWidthPx}px` : undefined,
+                      maxWidth: '92vw',
                       gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                       touchAction: 'manipulation'
                     }}
