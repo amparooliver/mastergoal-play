@@ -329,6 +329,12 @@ const Game = ({ gameId, initialState }) => {
     }
 
     if (selectedPiece) {
+      // If clicking the same origin cell again, keep selection (avoid immediate deselect flicker)
+      const selRow = selectedPiece.position?.row;
+      const selCol = selectedPiece.position?.col;
+      if ((selRow === row && selCol === col) || (selectedPiece.isBall && onBall)) {
+        return;
+      }
       const move = legalMoves.find(m => m.to.row === row && m.to.col === col);
       if (move) return executeMove(move);
       setSelectedPiece(null);
