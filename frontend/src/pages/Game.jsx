@@ -156,6 +156,7 @@ const Game = ({ gameId, initialState }) => {
 
   // Special tiles helper (reuse the same logic used for white dots)
   const isSpecialTileForTeam = (row, col, team) => {
+    if ((gameState?.level || 0) !== 3) return false; // Only valid on level 3
     if (!team && gameState?.currentTeam) team = gameState.currentTeam;
     if (!team) return false;
     const isLeft = team === 'LEFT';
@@ -863,17 +864,10 @@ const Game = ({ gameId, initialState }) => {
         )}
         {
           (() => {
+            if ((gameState?.level || 0) !== 3) return null;
             const team = gameState?.currentTeam;
             if (!team) return null;
-            const isLeft = team === 'LEFT';
-            let special = false;
-            if (isLeft) {
-              if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) special = true;
-              if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) special = true;
-            } else {
-              if ((row === 1 && (col === 0 || col === 10)) || (row === 1 && col >= 3 && col <= 7)) special = true;
-              if ((row === 13 && (col === 0 || col === 10)) || (row === 13 && col >= 3 && col <= 7)) special = true;
-            }
+            const special = isSpecialTileForTeam(row, col, team);
             return special ? (
               <span className="absolute w-4 h-4 rounded-full bg-mg-cream shadow-sm z-10 pointer-events-none" />
             ) : null;
