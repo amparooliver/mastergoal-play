@@ -763,10 +763,10 @@ const Game = ({ gameId, initialState }) => {
       // Keep interaction + hover only; visual effect is rendered via overlay element below
       cellClass += 'cursor-pointer hover:brightness-110 ';
     }
-    if (isSelected) cellClass += 'ring-4 ring-blue-400 ';
+    // Removed blue selection ring for selected chip
     if (isHoverTarget && isLegalMove) cellClass += 'ring-4 ring-yellow-400 ';
-    if (isAiMoveFrom) cellClass += 'ring-4 ring-purple-400 ';
-    if (isAiMoveTo) cellClass += 'ring-4 ring-purple-600 animate-pulse ';
+    // Remove AI move borders to avoid colored outlines during AI animations
+    // (was ring-purple on from/to cells)
 
     return (
       <div key={`${dRow}-${dCol}`} className={cellClass}>
@@ -965,10 +965,18 @@ const Game = ({ gameId, initialState }) => {
               })()}
             </div>
             <div className="mt-3 text-center text-mg-cream">
-              <span className="font-bold">Turn: </span>
-              <span className={gameState?.currentTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage'}>
-                {gameState?.currentTeam}
-              </span>
+              {(() => {
+                // In PvE we often receive a state where AI already played (backend chains moves),
+                // making currentTeam look like it never changed. Reflect AI's turn while animating.
+                const displayTeam = (MODE === 'pve' && (isAnimatingAi)) ? AI_TEAM : (gameState?.currentTeam);
+                const cls = displayTeam === 'LEFT' ? 'text-mg-sand' : 'text-mg-sage';
+                return (
+                  <>
+                    <span className="font-bold">Turn: </span>
+                    <span className={cls}>{displayTeam}</span>
+                  </>
+                );
+              })()}
               {(() => {
                 let enabled = false;
                 let maxTurns = 0;
