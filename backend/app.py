@@ -218,10 +218,12 @@ def make_move(game_id):
                 return jsonify({'error': 'Not your turn'}), 400
         
         # Execute player move
-        # Snapshot pre-move for extra-turn detection
+        # Snapshot pre-move for extra-turn detection and goal detection
         prev_team = game.current_team
         prev_turn = game.turn_count
         prev_level = game.level
+        prev_left_goals = game.LEFT_goals
+        prev_right_goals = game.RIGHT_goals
 
         success, message = game_manager.execute_move(
             game, move_type, from_pos, to_pos
@@ -277,7 +279,22 @@ def make_move(game_id):
                 'gameState': game_manager.get_game_state(game),
                 'gameEnded': True,
                 'winner': game_status['winner'],
-                'extraTurn': extra_turn
+                'extraTurn': extra_turn,
+                'goalScored': 'LEFT' if game.LEFT_goals > prev_left_goals else ('RIGHT' if game.RIGHT_goals > prev_right_goals else None)
+            })
+
+        # If the player's move scored a goal, do NOT immediately trigger AI; let client show goal modal
+        goal_scored = (game.LEFT_goals > prev_left_goals) or (game.RIGHT_goals > prev_right_goals)
+        if goal_scored:
+            return jsonify({
+                'success': True,
+                'gameState': game_manager.get_game_state(game),
+                'gameEnded': False,
+                'winner': None,
+                'aiMoves': [],
+                'lastAiMove': None,
+                'extraTurn': extra_turn,
+                'goalScored': 'LEFT' if game.LEFT_goals > prev_left_goals else 'RIGHT'
             })
         
         # AI turn: allow chained AI actions until turn passes or game ends
@@ -328,7 +345,8 @@ def make_move(game_id):
             'winner': game_status.get('winner'),
             'aiMoves': ai_moves,
             'lastAiMove': ai_moves[-1] if ai_moves else None,
-            'extraTurn': extra_turn
+            'extraTurn': extra_turn,
+            'goalScored': None
         })
         
     except Exception as e:

@@ -62,6 +62,26 @@ const Game = ({ gameId, initialState }) => {
   const timerSeconds = (sessionConfig?.timerSeconds ?? (sessionConfig?.timerMinutes ?? 0) * 60) || 0;
   const [secondsLeft, setSecondsLeft] = useState(timerEnabled ? timerSeconds : 0);
 
+  // Track last known score to detect goals and trigger a popup
+  const lastScoreRef = useRef({
+    LEFT: initialState?.gameState?.score?.LEFT ?? 0,
+    RIGHT: initialState?.gameState?.score?.RIGHT ?? 0,
+  });
+  const [lastGoalTeam, setLastGoalTeam] = useState(null); // 'LEFT' | 'RIGHT'
+  const maybeShowGoalPopup = (score, { gameEnded } = { gameEnded: false }) => {
+    try {
+      const prev = lastScoreRef.current || { LEFT: 0, RIGHT: 0 };
+      const l = score?.LEFT ?? 0;
+      const r = score?.RIGHT ?? 0;
+      const incLeft = l > (prev.LEFT ?? 0);
+      const incRight = r > (prev.RIGHT ?? 0);
+      lastScoreRef.current = { LEFT: l, RIGHT: r };
+      if (gameEnded) return; // show game-over instead if match ended
+      if (incLeft && !incRight) { setLastGoalTeam('LEFT'); setActiveModal('goal'); }
+      else if (incRight && !incLeft) { setLastGoalTeam('RIGHT'); setActiveModal('goal'); }
+    } catch {}
+  };
+
   // Orientation: landscape if viewport wide enough
   const [isLandscape, setIsLandscape] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   useEffect(() => {
@@ -221,6 +241,7 @@ const Game = ({ gameId, initialState }) => {
       const data = await response.json();
       if (data.success) {
         setGameState(data.gameState);
+        try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: false }); } catch {}
         const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
         if (aiMoves.length) animateAiSequence(aiMoves);
         // If backend marks session completed on AI turn, infer winner and show modal
@@ -393,7 +414,7 @@ const Game = ({ gameId, initialState }) => {
       fetchGameState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentTeam, pendingExtraTurn]);
+  }, [gameState?.currentTeam, pendingExtraTurn, activeModal]);
 
   // Timer: simple per-turn countdown UI (client-side only)
   useEffect(() => {
@@ -480,6 +501,7 @@ const Game = ({ gameId, initialState }) => {
       const data = await response.json();
       if (response.ok && data.success) {
         setGameState(data.gameState);
+        try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: !!data.gameEnded }); } catch {}
         setSelectedPiece(null);
         setLegalMoves([]);
         const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
@@ -525,6 +547,7 @@ const Game = ({ gameId, initialState }) => {
       const data = await response.json();
       if (data.success) {
         setGameState(data.gameState);
+        try { lastScoreRef.current = { LEFT: data.gameState?.score?.LEFT ?? 0, RIGHT: data.gameState?.score?.RIGHT ?? 0 }; } catch {}
         setGameEnded(false);
         setWinner(null);
         setSelectedPiece(null);
@@ -1068,7 +1091,30 @@ const Game = ({ gameId, initialState }) => {
             </div>
           </div>
         </Modal>
-      )}{/* Game Over Modal */}
+      )}
+      {/* Goal Modal */}
+      {activeModal === 'goal' && lastGoalTeam && (
+        <Modal
+          title={lastGoalTeam === 'LEFT' ? '¡Gol del equipo LEFT!' : '¡Gol del equipo RIGHT!'}
+          onClose={() => setActiveModal(null)}
+          actions={[
+            <button key="continue" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>
+              Continuar
+            </button>
+          ]}
+        >
+          <p className="text-mg-brown">
+            {(function() {
+              if (MODE === 'pve') {
+                const humanScored = lastGoalTeam === HUMAN_TEAM;
+                return humanScored ? '¡Anotaste un gol! ¡Bien jugado!' : '¡El rival anotó! ¡A remontar!';
+              }
+              return 'Se ha anotado un gol. La partida continúa.';
+            })()}
+          </p>
+        </Modal>
+      )}
+      {/* Game Over Modal */}
       {activeModal === 'gameover' && (
         <Modal
           title={(function() {
