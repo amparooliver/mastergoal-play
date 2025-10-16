@@ -17,6 +17,11 @@ const Game = ({ gameId, initialState }) => {
   const aiAnimTimer = useRef(null);
   const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
   const aiSequenceEnd = useRef(null);
+  // AI sequence helpers for robust animation ordering
+  const preKickBallRef = useRef({ active: false, row: null, col: null });
+  const ballFinalPosRef = useRef(null); // {row, col} of last kick destination in sequence
+  // Prevent AI autoplay when an extra-turn was just granted by special tile
+  const [pendingExtraTurn, setPendingExtraTurn] = useState(false);
   // Drag and drop state
   const [dragging, setDragging] = useState({ active: false, from: null, type: null }); // type: 'piece' | 'ball'
   const [hoverCell, setHoverCell] = useState(null); // {row, col}
@@ -209,6 +214,10 @@ const Game = ({ gameId, initialState }) => {
     if (!gid) return;
     try {
       const response = await fetch(`${API_BASE}/api/game/${gid}/state`);
+      if (response.status === 404) {
+        await recreateGameSession();
+        return;
+      }
       const data = await response.json();
       if (data.success) {
         setGameState(data.gameState);
@@ -229,6 +238,48 @@ const Game = ({ gameId, initialState }) => {
     }
   };
 
+  // Recreate game on server if in-memory session was lost (e.g., backend restart)
+  const recreateGameSession = async () => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
+      const payload = {
+        level: saved.level || 1,
+        difficulty: saved.difficulty || 'medium',
+        playerColor: saved.playerColor || saved.playerColor || 'LEFT',
+        mode: saved.mode || 'pve',
+        timerEnabled: !!saved.timerEnabled,
+        timerMinutes: Math.ceil(((saved.timerSeconds || 0) / 60) || saved.timerMinutes || 0),
+        maxTurnsEnabled: !!saved.maxTurnsEnabled,
+        maxTurns: saved.maxTurnsEnabled ? (saved.maxTurns || 0) : undefined,
+      };
+      const resp = await fetch(`${API_BASE}/api/game/new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data?.success) return;
+      const playerTeam = payload.playerColor;
+      const opponentTeam = playerTeam === 'LEFT' ? 'RIGHT' : 'LEFT';
+      const enriched = {
+        ...data,
+        mode: payload.mode,
+        timerEnabled: payload.timerEnabled,
+        timerSeconds: saved.timerSeconds || 0,
+        maxTurnsEnabled: !!payload.maxTurnsEnabled,
+        maxTurns: payload.maxTurnsEnabled ? payload.maxTurns : 0,
+        chipColors: saved.chipColors || { LEFT: '#E6DCB7', RIGHT: '#A4A77E' },
+      };
+      sessionStorage.setItem('gameSession', JSON.stringify(enriched));
+      setResolvedGameId(data.gameId);
+      setGameState(data.gameState);
+      showNotice('Sesión recuperada', 'El servidor se reinició. Creamos una nueva partida con tu configuración.');
+    } catch (e) {
+      console.error('Failed to recreate game session:', e);
+    }
+  };
+
   const buildPath = (from, to) => {
     const dr = Math.sign((to?.row ?? 0) - (from?.row ?? 0));
     const dc = Math.sign((to?.col ?? 0) - (from?.col ?? 0));
@@ -243,7 +294,12 @@ const Game = ({ gameId, initialState }) => {
     const path = buildPath(move.from, move.to);
     if (!path || path.length <= 1) { setTimeout(onDone, 100); return; }
     setIsAnimatingAi(true);
-    setAiAnim({ active: true, path, index: 0, type: move.moveType || move.type, team: move.player });
+    const moveType = move.moveType || move.type;
+    // If a kick starts, stop the pre-kick overlay immediately
+    if (moveType === 'kick') {
+      preKickBallRef.current = { active: false, row: null, col: null };
+    }
+    setAiAnim({ active: true, path, index: 0, type: moveType, team: move.player });
     if (aiAnimTimer.current) clearInterval(aiAnimTimer.current);
     // Slow down AI step animation for better readability
     aiAnimTimer.current = setInterval(() => {
@@ -264,18 +320,39 @@ const Game = ({ gameId, initialState }) => {
   const animateAiSequence = (moves) => {
     if (!moves || moves.length === 0) return;
     setLastAiMove(moves[moves.length - 1]);
+    // Track whole sequence and kick boundaries
+    const firstKickIndex = moves.findIndex(m => (m.moveType || m.type) === 'kick');
+    const lastKickIndex = (() => {
+      let idx = -1; for (let k = moves.length - 1; k >= 0; k--) { if ((moves[k].moveType || moves[k].type) === 'kick') { idx = k; break; } }
+      return idx;
+    })();
     aiSequenceEnd.current = moves[moves.length - 1].to;
     aiSeqRef.current = {
       moves,
       index: 0,
-      firstKick: moves.findIndex(m => (m.moveType || m.type) === 'kick')
+      firstKick: firstKickIndex,
     };
+    // Prepare pre-kick overlay at the original ball position (before any kicks)
+    if (firstKickIndex >= 0) {
+      const firstKick = moves[firstKickIndex];
+      preKickBallRef.current = { active: true, row: firstKick.from.row, col: firstKick.from.col };
+    } else {
+      preKickBallRef.current = { active: false, row: null, col: null };
+    }
+    // Remember ball final destination (last kick target) to hide static ball only there during anims
+    if (lastKickIndex >= 0) {
+      ballFinalPosRef.current = { ...moves[lastKickIndex].to };
+    } else {
+      ballFinalPosRef.current = null;
+    }
     let i = 0;
     const next = () => {
       if (i >= moves.length) {
         setIsAnimatingAi(false);
         aiSequenceEnd.current = null;
         aiSeqRef.current = { moves: [], index: -1, firstKick: -1 };
+        preKickBallRef.current = { active: false, row: null, col: null };
+        ballFinalPosRef.current = null;
         setTimeout(() => setLastAiMove(null), 1000);
         return;
       }
@@ -291,8 +368,9 @@ const Game = ({ gameId, initialState }) => {
           setTimeout(next, gap);
         });
       };
-      // Insert a small pause before the kick starts
+      // Insert a small pause before the kick starts and show pre-kick ball at the kick origin
       if ((move.moveType || move.type) === 'kick') {
+        preKickBallRef.current = { active: true, row: move.from.row, col: move.from.col };
         setTimeout(start, AI_PRE_KICK_PAUSE_MS);
       } else {
         start();
@@ -311,11 +389,11 @@ const Game = ({ gameId, initialState }) => {
     if (!gameState) return;
     const gid = resolvedGameId || gameId;
     if (!gid) return;
-    if (MODE === 'pve' && gameState.currentTeam === AI_TEAM && !isLoading && !isAnimatingAi && !activeModal) {
+    if (MODE === 'pve' && gameState.currentTeam === AI_TEAM && !isLoading && !isAnimatingAi && !activeModal && !pendingExtraTurn) {
       fetchGameState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentTeam]);
+  }, [gameState?.currentTeam, pendingExtraTurn]);
 
   // Timer: simple per-turn countdown UI (client-side only)
   useEffect(() => {
@@ -386,6 +464,7 @@ const Game = ({ gameId, initialState }) => {
     const gid = resolvedGameId || gameId;
     if (!gid) return;
     const movingTeam = gameState?.currentTeam;
+    setPendingExtraTurn(false);
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/game/${gid}/move`, {
@@ -393,6 +472,11 @@ const Game = ({ gameId, initialState }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moveType: move.type, fromPos: move.from, toPos: move.to })
       });
+      if (response.status === 404) {
+        await recreateGameSession();
+        setIsLoading(false);
+        return;
+      }
       const data = await response.json();
       if (response.ok && data.success) {
         setGameState(data.gameState);
@@ -408,6 +492,10 @@ const Game = ({ gameId, initialState }) => {
             showNotice(t('specialTileTitle'), t('specialTileBody'));
           }
         } catch {}
+        // Backend hint: extra turn granted (guard AI autoplay)
+        if (!data.gameEnded && data.extraTurn) {
+          setPendingExtraTurn(true);
+        }
         if (aiMoves.length) animateAiSequence(aiMoves);
         if (data.gameEnded) {
           setGameEnded(true);
@@ -562,13 +650,14 @@ const Game = ({ gameId, initialState }) => {
     const showAiOverlayHere = aiActive && aiStepPos && aiStepPos.row === row && aiStepPos.col === col;
     const hideFinalDuringAnim = aiActive && aiFinalPos && aiFinalPos.row === row && aiFinalPos.col === col;
     const hideSequenceEnd = aiActive && aiSequenceEnd.current && aiSequenceEnd.current.row === row && aiSequenceEnd.current.col === col;
-    // If AI sequence includes a upcoming kick, hide the static ball until the kick anim runs
+    // Determine if we should hide the static ball at its final position only (to avoid ghosting),
+    // and show a pre-kick overlay at the original position until the first kick starts.
     const seq = aiSeqRef.current;
     const firstKickIndex = (seq && typeof seq.firstKick === 'number') ? seq.firstKick : -1;
     const curSeqIndex = (seq && typeof seq.index === 'number') ? seq.index : -1;
-    const hideBallPreKick = firstKickIndex >= 0 && curSeqIndex >= 0 && (
-      curSeqIndex < firstKickIndex || (curSeqIndex === firstKickIndex && aiActive && aiAnim.type === 'kick')
-    );
+    const ballFinal = ballFinalPosRef.current;
+    const isBallFinalCell = !!ballFinal && ballFinal.row === row && ballFinal.col === col;
+    const hideStaticBallOnlyAtFinal = isBallFinalCell && (curSeqIndex < firstKickIndex || (aiActive && aiAnim.type === 'kick'));
 
     const isLegalMove = legalMoves.some(m => m.to.row === row && m.to.col === col);
     const isHoverTarget = dragging.active && hoverCell && hoverCell.row === row && hoverCell.col === col;
@@ -714,8 +803,13 @@ const Game = ({ gameId, initialState }) => {
             <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
           </div>
         )}
-        {hasBall && !(hideFinalDuringAnim || hideSequenceEnd || hideBallPreKick) && !hideStaticBallOnDrag && (
+        {/* Static ball, hidden only at its final destination while pre-kick/kick is animating */}
+        {hasBall && !(hideFinalDuringAnim || hideSequenceEnd || hideStaticBallOnlyAtFinal) && !hideStaticBallOnDrag && (
           <img src="/assets/bw-ball.svg" alt="ball" className="relative z-30 pointer-events-none w-1/2 h-1/2 drop-shadow" />
+        )}
+        {/* Pre-kick overlay ball at original position until the kick animation begins */}
+        {preKickBallRef.current.active && preKickBallRef.current.row === row && preKickBallRef.current.col === col && (
+          <img src="/assets/bw-ball.svg" alt="ball-prekick" className="relative z-30 pointer-events-none w-1/2 h-1/2 opacity-90 drop-shadow" />
         )}
         {showAiOverlayHere && (
           aiAnim.type === 'kick' ? (

@@ -218,6 +218,11 @@ def make_move(game_id):
                 return jsonify({'error': 'Not your turn'}), 400
         
         # Execute player move
+        # Snapshot pre-move for extra-turn detection
+        prev_team = game.current_team
+        prev_turn = game.turn_count
+        prev_level = game.level
+
         success, message = game_manager.execute_move(
             game, move_type, from_pos, to_pos
         )
@@ -236,6 +241,22 @@ def make_move(game_id):
             'to': to_pos,
             'timestamp': datetime.utcnow().isoformat()
         })
+
+        # Detect if an extra turn was granted by special tile (level 3 rule)
+        extra_turn = False
+        try:
+            if move_type == 'kick' and prev_level >= 3:
+                # Import here to avoid circular import issues
+                from position import Position as _Pos
+                to_pos_obj = _Pos(to_pos['row'], to_pos['col'])
+                # Use engine's helper to check if destination is a special tile for the moving team
+                if game.is_special_tile(to_pos_obj, prev_team):
+                    # If special tile was hit, rule grants an extra turn to the same team
+                    # Depending on whether it was a pass, current_team may remain the same immediately,
+                    # or be restored after internal end_turn handling. Either way, flag it.
+                    extra_turn = True
+        except Exception:
+            extra_turn = False
         
         # Check game end with overrides
         win_goals = session.get('win_goals')
@@ -255,12 +276,14 @@ def make_move(game_id):
                 'success': True,
                 'gameState': game_manager.get_game_state(game),
                 'gameEnded': True,
-                'winner': game_status['winner']
+                'winner': game_status['winner'],
+                'extraTurn': extra_turn
             })
         
         # AI turn: allow chained AI actions until turn passes or game ends
         ai_moves = []
-        if game.current_team == session['ai_color']:
+        # Do not trigger AI if an extra turn (special tile) was granted to the human
+        if game.current_team == session['ai_color'] and not extra_turn:
             ai_agent = session['ai_agent']
             # Safety cap to avoid infinite loops due to unexpected states
             chain_limit = 10
@@ -304,7 +327,8 @@ def make_move(game_id):
             'gameEnded': game_status['ended'],
             'winner': game_status.get('winner'),
             'aiMoves': ai_moves,
-            'lastAiMove': ai_moves[-1] if ai_moves else None
+            'lastAiMove': ai_moves[-1] if ai_moves else None,
+            'extraTurn': extra_turn
         })
         
     except Exception as e:
