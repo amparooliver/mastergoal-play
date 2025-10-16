@@ -147,7 +147,7 @@ const GameConfig = ({ onStartGame }) => {
                   <button
                     key={level}
                     onClick={() => setConfig({ ...config, level })}
-                    aria-label={`Level ${level}`}
+                    aria-label={`${t('level')} ${level}`}
                     className={`w-10 h-10 rounded-full border border-2 flex items-center justify-center text-xs font-bold transition select-none ${
                       config.level === level
                         ? 'bg-mg-green-1 text-mg-cream border-mg-green-1'
@@ -168,6 +168,7 @@ const GameConfig = ({ onStartGame }) => {
                   <button
                     key={diff}
                     onClick={() => setConfig({ ...config, difficulty: diff })}
+                    aria-label={t(diff)}
                     className={`text-base capitalize tracking-wide transition select-none ${
                       config.difficulty === diff
                         ? 'text-mg-green-1 font-extrabold'
