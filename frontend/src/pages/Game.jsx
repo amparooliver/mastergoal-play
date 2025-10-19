@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
 import Modal from '../components/Modal.jsx';
 import { useI18n } from '../context/i18n2';
+import { useSound } from '../hooks/useSound.js';
 
 const Game = ({ gameId, initialState }) => {
   const [gameState, setGameState] = useState(initialState?.gameState || null);
@@ -17,6 +18,8 @@ const Game = ({ gameId, initialState }) => {
   const aiAnimTimer = useRef(null);
   const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
   const aiSequenceEnd = useRef(null);
+  const lastPlayedRef = useRef({ goal: 0, gameover: 0 });
+  const prevModalRef = useRef(null);
   // AI sequence helpers for robust animation ordering
   const preKickBallRef = useRef({ active: false, row: null, col: null });
   const ballFinalPosRef = useRef(null); // {row, col} of last kick destination in sequence
@@ -35,7 +38,7 @@ const Game = ({ gameId, initialState }) => {
   const AI_POST_KICK_PAUSE_MS = 300; // brief pause after kick before next move
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const ROWS = 15;
   const COLS = 11;
@@ -195,6 +198,8 @@ const Game = ({ gameId, initialState }) => {
     return { ok: false };
   };
 
+  const { playSfx } = useSound();
+
   const startDragFrom = (row, col) => {
     const info = canStartDragAt(row, col);
     if (!info.ok) return false;
@@ -202,12 +207,28 @@ const Game = ({ gameId, initialState }) => {
       setSelectedPiece(info.piece);
       const pieceMoves = (gameState.legalMoves || []).filter(m => m.from.row === row && m.from.col === col);
       setLegalMoves(pieceMoves);
+      if ((pieceMoves || []).length > 0) {
+        try { playSfx('onMove'); } catch {}
+      } else {
+        const legal = gameState?.legalMoves || [];
+        const hasKick = legal.some(m => m.type === 'kick');
+        const onlyKicks = hasKick && legal.every(m => m.type === 'kick');
+        if (onlyKicks) {
+          const title = lang === 'es' ? 'Debes patear!' : (t('mustKickTitle') || 'Must Kick');
+          const body = lang === 'es'
+            ? 'Debes patear! No podes quedarte con la posesion de la pelota al finalizar un turno'
+            : (t('mustKickBody') || 'You must kick! You cannot keep ball possession at the end of a turn.');
+          showNotice(title, body);
+        }
+      }
     } else {
       setSelectedPiece(info.piece);
       const kickMoves = (gameState.legalMoves || []).filter(m => (m.type === 'kick') && m.from.row === row && m.from.col === col);
       setLegalMoves(kickMoves);
       if ((kickMoves || []).length === 0) {
         showNotice(t('neutralTileTitle'), t('neutralTileBody'));
+      } else {
+        try { playSfx('onMove'); } catch {}
       }
     }
     setDragging({ active: true, from: { row, col }, type: info.type });
@@ -226,7 +247,9 @@ const Game = ({ gameId, initialState }) => {
     cancelDrag();
     if (move) {
       executeMove(move);
-    }
+    } //else {
+      //try { playSfx('onError'); } catch {}
+    //}
   };
 
   // Fetch game state
@@ -453,6 +476,20 @@ const Game = ({ gameId, initialState }) => {
       setSelectedPiece(piece);
       const pieceMoves = gameState.legalMoves.filter(m => m.from.row === row && m.from.col === col);
       setLegalMoves(pieceMoves);
+      if ((pieceMoves || []).length > 0) {
+        try { playSfx('onMove'); } catch {}
+      } else {
+        const legal = gameState?.legalMoves || [];
+        const hasKick = legal.some(m => m.type === 'kick');
+        const onlyKicks = hasKick && legal.every(m => m.type === 'kick');
+        if (onlyKicks) {
+          const title = lang === 'es' ? 'Debes patear!' : (t('mustKickTitle') || 'Must Kick');
+          const body = lang === 'es'
+            ? 'Debes patear! No podes quedarte con la posesion de la pelota al finalizar un turno'
+            : (t('mustKickBody') || 'You must kick! You cannot keep ball possession at the end of a turn.');
+          showNotice(title, body);
+        }
+      }
       return;
     }
 
@@ -465,6 +502,7 @@ const Game = ({ gameId, initialState }) => {
       }
       const move = legalMoves.find(m => m.to.row === row && m.to.col === col);
       if (move) return executeMove(move);
+      //try { playSfx('onError'); } catch {}
       setSelectedPiece(null);
       setLegalMoves([]);
       return;
@@ -473,6 +511,7 @@ const Game = ({ gameId, initialState }) => {
     if (onBall) {
       const kickMoves = gameState.legalMoves.filter(m => m.type === 'kick' && m.from.row === row && m.from.col === col);
       if (kickMoves.length) {
+        try { playSfx('onMove'); } catch {}
         setLegalMoves(kickMoves);
         setSelectedPiece({ isBall: true, position: { row, col } });
       } else {
@@ -480,6 +519,32 @@ const Game = ({ gameId, initialState }) => {
       }
     }
   };
+
+  // Play sounds when goal/gameover modals activate
+  useEffect(() => {
+    const prev = prevModalRef.current;
+    if (prev !== activeModal) {
+      prevModalRef.current = activeModal;
+      if (activeModal === 'goal' && lastGoalTeam) {
+        try {
+          const sfx = (MODE === 'pve')
+            ? (lastGoalTeam === HUMAN_TEAM ? 'onUserGoal' : 'onAIGoal')
+            : 'onUserGoal';
+          playSfx(sfx);
+          lastPlayedRef.current.goal += 1;
+        } catch {}
+      }
+      if (activeModal === 'gameover' && winner) {
+        try {
+          let sfx = 'onUserWin';
+          if (winner === 'DRAW') sfx = 'onDraw';
+          else if (MODE === 'pve') sfx = (winner === HUMAN_TEAM ? 'onUserWin' : 'onAIWin');
+          playSfx(sfx);
+          lastPlayedRef.current.gameover += 1;
+        } catch {}
+      }
+    }
+  }, [activeModal, lastGoalTeam, winner, MODE, HUMAN_TEAM]);
 
   // Execute move
   const executeMove = async (move) => {
@@ -501,6 +566,7 @@ const Game = ({ gameId, initialState }) => {
       }
       const data = await response.json();
       if (response.ok && data.success) {
+        try { playSfx('onMove'); } catch {}
         setGameState(data.gameState);
         try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: !!data.gameEnded }); } catch {}
         setSelectedPiece(null);
@@ -588,28 +654,34 @@ const Game = ({ gameId, initialState }) => {
 
   // Turn indicator: keep simple text below the board
 
-  const SideToolbar = () => (
-    <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[140px]">
-      <div className="w-20 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-8 gap-12 shadow-lg">
-        <button onClick={() => setActiveModal('home')} title="Inicio" className="hover:opacity-90">
-          <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-8 h-8" />
-        </button>
-        <button onClick={() => setActiveModal('pause')} title="Pausa" className="hover:opacity-90">
-          <img src="/assets/PauseVerticalMenu.svg" alt="Pause" className="w-8 h-8" />
-        </button>
-        <button onClick={() => setActiveModal('restart')} title="Reiniciar" className="hover:opacity-90">
-          <img src="/assets/RestartVerticalMenu.svg" alt="Restart" className="w-8 h-8" />
-        </button>
-        <button onClick={() => setActiveModal('help')} title="Ayuda" className="hover:opacity-90">
-          <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-8 h-8" />
-        </button>
-        <button onClick={() => setActiveModal('config')} title="Configuraci�n" className="hover:opacity-90">
-          <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-8 h-8" />
-        </button>
-
+  const SideToolbar = () => {
+    const { soundEnabled, toggleSound } = useSound();
+    const sideClick = (fn) => () => { try { playSfx('onSideToolClick'); } catch {} fn(); };
+    return (
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 ml-[140px]">
+        <div className="w-20 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-8 gap-12 shadow-lg">
+          <button onClick={sideClick(() => setActiveModal('home'))} title="Inicio" className="hover:opacity-90">
+            <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-8 h-8" />
+          </button>
+          <button onClick={sideClick(() => setActiveModal('pause'))} title="Pausa" className="hover:opacity-90">
+            <img src="/assets/PauseVerticalMenu.svg" alt="Pause" className="w-8 h-8" />
+          </button>
+          <button onClick={sideClick(() => setActiveModal('restart'))} title="Reiniciar" className="hover:opacity-90">
+            <img src="/assets/RestartVerticalMenu.svg" alt="Restart" className="w-8 h-8" />
+          </button>
+          <button onClick={sideClick(() => setActiveModal('help'))} title="Ayuda" className="hover:opacity-90">
+            <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-8 h-8" />
+          </button>
+          <button onClick={() => { try { playSfx('onSideToolClick'); } catch {} toggleSound(); }} title={soundEnabled ? "Sonido activado" : "Sonido desactivado"} className="hover:opacity-90">
+            <img src={soundEnabled ? "/assets/SoundOn.svg" : "/assets/SoundOff.svg"} alt={soundEnabled ? "Sound On" : "Sound Off"} className="w-8 h-8" />
+          </button>
+          <button onClick={sideClick(() => setActiveModal('config'))} title="Configuracion" className="hover:opacity-90">
+            <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-8 h-8" />
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Horizontal toolbar for small/vertical screens
   const TopToolbar = () => (
@@ -618,7 +690,7 @@ const Game = ({ gameId, initialState }) => {
         <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-6 h-6" />
       </button>
       <button onClick={() => setActiveModal('help')} title="Ayuda" className="hover:opacity-90">?</button>
-      <button onClick={() => setActiveModal('config')} title="Configuraci�n" className="hover:opacity-90">
+      <button onClick={() => setActiveModal('config')} title="Configuracion" className="hover:opacity-90">
         <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-6 h-6" />
       </button>
       <button onClick={() => setActiveModal('about')} title="Acerca de" className="hover:opacity-90">
@@ -823,7 +895,7 @@ const Game = ({ gameId, initialState }) => {
           </>
         )}
         {player && !(hideFinalDuringAnim || hideSequenceEnd) && !hideStaticPieceOnDrag && (
-          <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+          <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
             <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
           </div>
         )}
@@ -839,7 +911,7 @@ const Game = ({ gameId, initialState }) => {
           aiAnim.type === 'kick' ? (
             <img src="/assets/bw-ball.svg" alt="ball-anim" className="relative z-30 w-1/2 h-1/2 drop-shadow pointer-events-none" />
           ) : (
-            <div className="pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+            <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
               <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
             </div>
           )
@@ -869,7 +941,7 @@ const Game = ({ gameId, initialState }) => {
             if (!team) return null;
             const special = isSpecialTileForTeam(row, col, team);
             return special ? (
-              <span className="absolute w-4 h-4 rounded-full bg-mg-cream shadow-sm z-10 pointer-events-none" />
+              <span className={`absolute ${isLandscape ? 'w-4 h-4' : 'w-2 h-2'} rounded-full bg-mg-cream shadow-sm z-10 pointer-events-none`} />
             ) : null;
           })()
         }
@@ -991,10 +1063,10 @@ const Game = ({ gameId, initialState }) => {
 
       {/* Modals */}
       {activeModal === 'home' && (
-        <Modal title={t('homeConfirmTitle')} onClose={() => setActiveModal(null)}
+        <Modal title={t('homeConfirmTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>{t('cancel')}</button>,
-            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => navigate('/')}>{t('leave')}</button>
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('cancel')}</button>,
+            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} navigate('/'); }}>{t('leave')}</button>
           ]}
         >
           <p>{t('homeConfirmText')}</p>
@@ -1002,9 +1074,9 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'pause' && (
-        <Modal title="Pausa" onClose={() => setActiveModal(null)}
+        <Modal title="Pausa" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="resume" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Continuar</button>
+            <button key="resume" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Continuar</button>
           ]}
         >
           <p className="text-mg-brown">La partida esta pausada. Cerra para continuar jugando.</p>
@@ -1012,10 +1084,10 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'restart' && (
-        <Modal title="¿Reiniciar partida?" onClose={() => setActiveModal(null)}
+        <Modal title="??Reiniciar partida?" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => setActiveModal(null)}>Cancelar</button>,
-            <button key="restart" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { setActiveModal(null); restartGame(); }}>Reiniciar</button>
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Cancelar</button>,
+            <button key="restart" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); restartGame(); }}>Reiniciar</button>
           ]}
         >
           <p className="text-mg-brown">Esto reiniciará el tablero y el marcador. ¿Estás seguro?</p>
@@ -1023,9 +1095,9 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'help' && (
-        <Modal title="Libro de Reglas" onClose={() => setActiveModal(null)} contentClassName="max-w-5xl w-[95vw] max-h-[90vh]"
+        <Modal title="Libro de Reglas" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }} contentClassName="max-w-5xl w-[95vw] max-h-[90vh]"
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>Cerrar</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Cerrar</button>
           ]}
         >
           <div className="w-full h-[70vh] overflow-hidden">
@@ -1035,9 +1107,9 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'about' && (
-        <Modal title={t('about')} onClose={() => setActiveModal(null)}
+        <Modal title={t('about')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('close')}</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('close')}</button>
           ]}
         >
           <p>{t('researchBlurb')}</p>
@@ -1045,9 +1117,9 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'config' && (
-        <Modal title={t('configTitle')} onClose={() => setActiveModal(null)}
+        <Modal title={t('configTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>{t('save')}</button>
+            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('save')}</button>
           ]}
         >
           <div className="space-y-6">
@@ -1098,9 +1170,9 @@ const Game = ({ gameId, initialState }) => {
       {activeModal === 'goal' && lastGoalTeam && (
         <Modal
           title={lastGoalTeam === 'LEFT' ? '¡Gol del equipo LEFT!' : '¡Gol del equipo RIGHT!'}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="continue" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => setActiveModal(null)}>
+            <button key="continue" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>
               Continuar
             </button>
           ]}
@@ -1128,12 +1200,12 @@ const Game = ({ gameId, initialState }) => {
             // PvP: show winning side
             return winner === 'LEFT' ? '¡Gana LEFT!' : '¡Gana RIGHT!';
           })()}
-          onClose={() => setActiveModal(null)}
+          onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
           actions={[
-            <button key="again" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { setActiveModal(null); restartGame(); }}>
+            <button key="again" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); restartGame(); }}>
               Jugar otra vez
             </button>,
-            <button key="exit" className="px-4 py-2 rounded bg-white/30" onClick={() => navigate('/')}>Salir</button>
+            <button key="exit" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} navigate('/'); }}>Salir</button>
           ]}
         >
           <p className="text-mg-brown">
@@ -1169,6 +1241,7 @@ const Game = ({ gameId, initialState }) => {
 };
 
 export default Game;
+
 
 
 

@@ -8,6 +8,7 @@ import GameConfig from './pages/GameConfig';
 import Game from './pages/Game';
 import Navigation from './components/Navigation';
 import './index.css';
+import { SoundProvider } from './context/SoundProvider.jsx';
 
 function AppFrame({ gameSession, onStartGame }) {
   const location = useLocation();
@@ -44,7 +45,9 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppFrame gameSession={gameSession} onStartGame={handleStartGame} />
+      <SoundProvider>
+        <AppFrame gameSession={gameSession} onStartGame={handleStartGame} />
+      </SoundProvider>
     </Router>
   );
 }

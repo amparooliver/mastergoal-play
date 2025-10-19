@@ -118,6 +118,8 @@ const DICT = {
     drawExplain: 'Draw. Nobody reached 2 goals (win condition).',
     neutralTileTitle: 'Neutral ball',
     neutralTileBody: "The ball is neutral: you can't kick it. Move a majority of your chips around it to take control.",
+    mustKickTitle: 'Must Kick',
+    mustKickBody: 'You must kick! You cannot keep ball possession at the end of a turn.',
     specialTileTitle: 'Extra turn!',
     specialTileBody: 'You placed the ball on a special tile — your team plays again.',
   },
