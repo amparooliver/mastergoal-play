@@ -122,6 +122,9 @@ const DICT = {
     mustKickBody: 'You must kick! You cannot keep ball possession at the end of a turn.',
     specialTileTitle: 'Extra turn!',
     specialTileBody: 'You placed the ball on a special tile — your team plays again.',
+    timeExpiredTitle: 'Time expired!',
+    timeExpiredBody: 'Your time ran out. A random move was made automatically.',
+    secondsLeft: 's left',
   },
   es: {
     playNow: 'Jugar Ahora',
@@ -225,7 +228,7 @@ const DICT = {
     researchBlurb: 'Este proyecto eval\u00FAa agentes de IA competitivos en un entorno de f\u00FAtbol por turnos (Mastergoal), comparando Minimax, MCTS y estrategias heur\u00EDsticas en distintos tama\u00F1os de equipo. La web permite reproducir condiciones de prueba y visualizar el comportamiento de los agentes.',
     credits: 'Cr\u00E9ditos',
     thesisAuthor: 'Autora de la tesis: Amparo Oliver',
-    advisors: 'Director(es): PhD. Luca Cernuzzi',
+    advisors: 'Tutor: PhD. Luca Cernuzzi',
     thanksCreator: 'Agradecimientos al creador del juego, Alberto Bogliaccini',
     repositories: 'Repositorios',
     webFrontend: 'Frontend Web',
@@ -238,8 +241,13 @@ const DICT = {
     drawExplain: 'Empate. Nadie alcanzó 2 goles (condición para ganar).',
     neutralTileTitle: 'Pelota neutral',
     neutralTileBody: 'La pelota está neutral: no se puede patear. Mueve una mayoría de tus fichas alrededor para tomar el control.',
+    mustKickTitle: '¡Debes patear!',
+    mustKickBody: '¡Debes patear! No puedes quedarte con la posesión de la pelota al finalizar un turno.',
     specialTileTitle: '¡Turno extra!',
     specialTileBody: 'Ubicaste la pelota en una casilla especial — tu equipo juega de nuevo.',
+    timeExpiredTitle: '¡Se te acabó el tiempo!',
+    timeExpiredBody: 'Se te acabó el tiempo. Se realizó un movimiento aleatorio automáticamente.',
+    secondsLeft: 's restantes',
   }
 };
 

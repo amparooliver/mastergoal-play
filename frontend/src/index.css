@@ -51,3 +51,24 @@ body {
 .glow-legal {
   box-shadow: 0 0 10px 3px rgba(245,239,213,0.8);
 }
+
+/* Notice banner animations */
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes shrink {
+  0% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}

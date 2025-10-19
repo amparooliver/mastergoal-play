@@ -38,7 +38,7 @@ const Game = ({ gameId, initialState }) => {
   const AI_POST_KICK_PAUSE_MS = 300; // brief pause after kick before next move
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
 
   const ROWS = 15;
   const COLS = 11;
@@ -64,6 +64,9 @@ const Game = ({ gameId, initialState }) => {
   const timerEnabled = !!sessionConfig?.timerEnabled;
   const timerSeconds = (sessionConfig?.timerSeconds ?? (sessionConfig?.timerMinutes ?? 0) * 60) || 0;
   const [secondsLeft, setSecondsLeft] = useState(timerEnabled ? timerSeconds : 0);
+  const [timerPaused, setTimerPaused] = useState(false);
+  const timerIntervalRef = useRef(null);
+  const [moveCount, setMoveCount] = useState(0); // Track move count to trigger timer reset
 
   // Track last known score to detect goals and trigger a popup
   const lastScoreRef = useRef({
@@ -214,11 +217,7 @@ const Game = ({ gameId, initialState }) => {
         const hasKick = legal.some(m => m.type === 'kick');
         const onlyKicks = hasKick && legal.every(m => m.type === 'kick');
         if (onlyKicks) {
-          const title = lang === 'es' ? 'Debes patear!' : (t('mustKickTitle') || 'Must Kick');
-          const body = lang === 'es'
-            ? 'Debes patear! No podes quedarte con la posesion de la pelota al finalizar un turno'
-            : (t('mustKickBody') || 'You must kick! You cannot keep ball possession at the end of a turn.');
-          showNotice(title, body);
+          showNotice(t('mustKickTitle'), t('mustKickBody'));
         }
       }
     } else {
@@ -440,28 +439,77 @@ const Game = ({ gameId, initialState }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentTeam, pendingExtraTurn, activeModal]);
 
-  // Timer: simple per-turn countdown UI (client-side only)
+  // Timer: Reset timer to full duration when move count changes (after each move)
   useEffect(() => {
-    if (!timerEnabled || gameEnded || activeModal) return;
+    if (!timerEnabled || gameEnded) return;
     setSecondsLeft(timerSeconds);
-    const id = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
-    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentTeam, timerEnabled, gameEnded, activeModal, timerSeconds]);
+  }, [moveCount, timerSeconds]);
 
-  // When timer hits zero on player's turn, auto-play a random legal move
+  // Timer: Manage pause/resume when modal state changes
   useEffect(() => {
-    const humanTeam = sessionConfig?.playerColor;
-    // Also pause auto-move while AI animation is running to avoid ordering conflicts
+    if (!timerEnabled || gameEnded) return;
+
+    // Pause timer if modal is open
+    if (activeModal) {
+      setTimerPaused(true);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Resume timer when modal closes (don't reset secondsLeft)
+    setTimerPaused(false);
+
+    // Clear any existing interval
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
+    // Start countdown interval (continues from current secondsLeft value)
+    timerIntervalRef.current = setInterval(() => {
+      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerEnabled, gameEnded, activeModal]);
+
+  // When timer hits zero, auto-play a random legal move and show notice
+  useEffect(() => {
+    // Don't trigger if timer is disabled, time is not zero, game ended, or loading/animating
     if (!timerEnabled || secondsLeft > 0 || gameEnded || isLoading || isAnimatingAi) return;
-    if (humanTeam && gameState?.currentTeam === humanTeam) {
+
+    // Check if it's a human player's turn (works for both PvE and PvP modes)
+    const currentTeam = gameState?.currentTeam;
+    if (!currentTeam) return;
+
+    // In PvE mode, only force move if it's the human's turn
+    // In PvP mode, force move for any player
+    const shouldForceMoveInPvE = MODE === 'pve' && currentTeam === HUMAN_TEAM;
+    const shouldForceMoveInPvP = MODE === 'pvp';
+
+    if (shouldForceMoveInPvE || shouldForceMoveInPvP) {
       const legal = gameState?.legalMoves || [];
       if (legal.length > 0) {
+        // Show bilingual notice about time expiration
+        showNotice(t('timeExpiredTitle'), t('timeExpiredBody'), 3000);
+
+        // Select and execute random move
         const random = legal[Math.floor(Math.random() * legal.length)];
         executeMove(random);
       }
     }
-  }, [secondsLeft]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft, timerEnabled, gameEnded, isLoading, isAnimatingAi, MODE, HUMAN_TEAM]);
 
   // Handle cell click
   const handleCellClick = async (row, col) => {
@@ -483,11 +531,7 @@ const Game = ({ gameId, initialState }) => {
         const hasKick = legal.some(m => m.type === 'kick');
         const onlyKicks = hasKick && legal.every(m => m.type === 'kick');
         if (onlyKicks) {
-          const title = lang === 'es' ? 'Debes patear!' : (t('mustKickTitle') || 'Must Kick');
-          const body = lang === 'es'
-            ? 'Debes patear! No podes quedarte con la posesion de la pelota al finalizar un turno'
-            : (t('mustKickBody') || 'You must kick! You cannot keep ball possession at the end of a turn.');
-          showNotice(title, body);
+          showNotice(t('mustKickTitle'), t('mustKickBody'));
         }
       }
       return;
@@ -571,6 +615,9 @@ const Game = ({ gameId, initialState }) => {
         try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: !!data.gameEnded }); } catch {}
         setSelectedPiece(null);
         setLegalMoves([]);
+
+        // Increment move count to trigger timer reset
+        setMoveCount(prev => prev + 1);
         const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
         // If team kept the turn after a kick to a special tile, surface extra-turn notice
         try {
@@ -619,6 +666,7 @@ const Game = ({ gameId, initialState }) => {
         setWinner(null);
         setSelectedPiece(null);
         setLegalMoves([]);
+        setMoveCount(0); // Reset move count and timer
       }
     } catch (e) {
       console.error('Error restarting:', e);
@@ -699,16 +747,24 @@ const Game = ({ gameId, initialState }) => {
     </div>
   );
 
-  const TimerWidget = () => (
-    !timerEnabled ? null : (
+  const TimerWidget = () => {
+    if (!timerEnabled) return null;
+
+    // Visual warning when time is running low
+    const isLowTime = secondsLeft <= 5;
+    const isCriticalTime = secondsLeft <= 3;
+
+    return (
       <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-160px]">
-        <div className="w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg">
-          <div className="text-3xl">??</div>
-          <div className="text-sm">{secondsLeft}s left</div>
+        <div className={`w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg transition-all duration-300 ${isCriticalTime ? 'ring-2 ring-red-500 animate-pulse' : isLowTime ? 'ring-2 ring-yellow-500' : ''}`}>
+          <div className="text-3xl">⏱</div>
+          <div className={`text-sm font-semibold ${isCriticalTime ? 'text-red-400' : isLowTime ? 'text-yellow-400' : ''}`}>
+            {secondsLeft}{t('secondsLeft')}
+          </div>
         </div>
       </div>
-    )
-  );
+    );
+  };
 
   // Board chrome: side toolbar and field overlays
   const FieldOverlay = () => (
@@ -969,12 +1025,48 @@ const Game = ({ gameId, initialState }) => {
               </div>
             )}
             <ScoreBoard />
-            {/* Responsive notice banner */}
+            {/* Enhanced responsive notice banner */}
             {notice && (
-              <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 px-3 sm:px-4 py-2 bg-mg-brown/95 text-mg-cream rounded-full shadow-md flex items-center gap-2 max-w-[92vw]">
-                <span className="inline-block text-xs sm:text-sm font-semibold">{notice.title}:</span>
-                <span className="inline-block text-xs sm:text-sm opacity-95">{notice.body}</span>
-                <button className="ml-2 text-mg-cream/80 hover:text-mg-cream text-sm" onClick={() => setNotice(null)} aria-label="Close">×</button>
+              <div className="absolute top-14 sm:top-16 left-1/2 -translate-x-1/2 z-30 max-w-[90vw] sm:max-w-md md:max-w-lg animate-[slideDown_0.3s_ease-out]">
+                <div className="relative backdrop-blur-md bg-gradient-to-br from-mg-orange/95 to-mg-orange/90 border-2 border-mg-sand/40 rounded-2xl shadow-xl overflow-hidden">
+                  {/* Decorative accent */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-mg-sand to-transparent" />
+
+                  <div className="p-3 sm:p-4 flex items-start gap-3">
+                    {/* Icon indicator */}
+                    <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-mg-brown/30 flex items-center justify-center">
+                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-mg-cream" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="text-mg-cream font-bold text-sm sm:text-base mb-1 leading-tight">
+                        {notice.title}
+                      </div>
+                      <div className="text-mg-cream/95 text-xs sm:text-sm leading-relaxed">
+                        {notice.body}
+                      </div>
+                    </div>
+
+                    {/* Close button */}
+                    <button
+                      className="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-mg-brown/30 hover:bg-mg-brown/50 flex items-center justify-center transition-all duration-200 group"
+                      onClick={() => setNotice(null)}
+                      aria-label="Close"
+                    >
+                      <svg className="w-4 h-4 text-mg-cream/80 group-hover:text-mg-cream transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Progress bar for auto-hide */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-mg-brown/20">
+                    <div className="h-full bg-mg-sand animate-[shrink_4.2s_linear]" style={{ transformOrigin: 'left' }} />
+                  </div>
+                </div>
               </div>
             )}
             <TimerWidget />
