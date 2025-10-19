@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChipIcon from '../components/ChipIcon.jsx';
+import GoalkeeperIcon from '../components/GoalkeeperIcon.jsx';
 import Modal from '../components/Modal.jsx';
 import { useI18n } from '../context/i18n2';
 import { useSound } from '../hooks/useSound.js';
@@ -39,6 +40,7 @@ const Game = ({ gameId, initialState }) => {
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null); // 'home' | 'config' | 'help' | 'about'
   const { t } = useI18n();
+  const { stopAllSounds } = useSound();
 
   const ROWS = 15;
   const COLS = 11;
@@ -56,6 +58,22 @@ const Game = ({ gameId, initialState }) => {
   const TEAM_COLORS = sessionConfig?.chipColors || {
     LEFT: '#E6DCB7', // sand
     RIGHT: '#A4A77E', // sage
+  };
+
+  // Goalkeeper color mapping - aesthetically complementary colors for each team color
+  const GOALKEEPER_COLORS = {
+    '#F5EFD5': '#D4AF37', // Cream → Gold
+    '#F18F01': '#6B2D5C', // Orange → Deep Purple
+    '#A40606': '#8B0000', // Dark Red → Burgundy
+    '#202C59': '#4A90E2', // Navy Blue → Sky Blue
+    '#120F0F': '#4A4A4A', // Almost Black → Charcoal Gray
+    '#E6DCB7': '#C65D3B', // Sand → Terracotta
+    '#A4A77E': '#2D5016', // Sage → Forest Green
+  };
+
+  // Helper to get goalkeeper color for a team
+  const getGoalkeeperColor = (teamColor) => {
+    return GOALKEEPER_COLORS[teamColor] || teamColor;
   };
   const MODE = sessionConfig?.mode || 'pve';
   const HUMAN_TEAM = sessionConfig?.playerColor || 'LEFT';
@@ -674,6 +692,60 @@ const Game = ({ gameId, initialState }) => {
   };
 
   // UI helpers
+  const TeamColorIndicator = ({ team }) => {
+    const color = TEAM_COLORS[team];
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span className="inline-block w-4 h-4 rounded-full border-2 border-mg-brown" style={{ backgroundColor: color }} />
+      </span>
+    );
+  };
+
+  // Helper function to check if goalkeeper is in their area
+  const isGoalkeeperInArea = (player) => {
+    if (!player || !player.isGoalkeeper) return false;
+
+    const row = player.position.row;
+    const col = player.position.col;
+
+    // LEFT team areas
+    if (player.team === 'LEFT') {
+      // Big area: rows 1-4, cols 1-9
+      const inBigArea = row >= 1 && row <= 4 && col >= 1 && col <= 9;
+      // Small area: rows 1-2, cols 2-8
+      const inSmallArea = row >= 1 && row <= 2 && col >= 2 && col <= 8;
+      return inBigArea || inSmallArea;
+    }
+
+    // RIGHT team areas
+    if (player.team === 'RIGHT') {
+      // Big area: rows 10-13, cols 1-9
+      const inBigArea = row >= 10 && row <= 13 && col >= 1 && col <= 9;
+      // Small area: rows 12-13, cols 2-8
+      const inSmallArea = row >= 12 && row <= 13 && col >= 2 && col <= 8;
+      return inBigArea || inSmallArea;
+    }
+
+    return false;
+  };
+
+  // Helper function to get a slightly darker/different tone for inactive goalkeepers
+  const getInactiveGoalkeeperColor = (teamColor) => {
+    // Convert hex to RGB, darken slightly, and add a border indicator
+    const hex = teamColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Darken by reducing brightness by 15%
+    const darkenFactor = 0.85;
+    const newR = Math.round(r * darkenFactor);
+    const newG = Math.round(g * darkenFactor);
+    const newB = Math.round(b * darkenFactor);
+
+    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+  };
+
   const ScoreBoard = () => {
     const leftScore = gameState?.score?.LEFT ?? 0;
     const rightScore = gameState?.score?.RIGHT ?? 0;
@@ -951,9 +1023,21 @@ const Game = ({ gameId, initialState }) => {
           </>
         )}
         {player && !(hideFinalDuringAnim || hideSequenceEnd) && !hideStaticPieceOnDrag && (
-          <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
-            <ChipIcon color={TEAM_COLORS[player.team]} width="100%" height="100%" />
-          </div>
+          player.isGoalkeeper && isGoalkeeperInArea(player) ? (
+            // Goalkeeper with arms - larger and can overflow, with distinct color
+            <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
+              <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[player.team])} width="100%" height="100%" />
+            </div>
+          ) : (
+            // Regular piece or inactive goalkeeper
+            <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+              <ChipIcon
+                color={player.isGoalkeeper ? getInactiveGoalkeeperColor(TEAM_COLORS[player.team]) : TEAM_COLORS[player.team]}
+                width="100%"
+                height="100%"
+              />
+            </div>
+          )
         )}
         {/* Static ball, hidden only at its final destination while pre-kick/kick is animating */}
         {hasBall && !(hideFinalDuringAnim || hideSequenceEnd || hideStaticBallOnlyAtFinal) && !hideStaticBallOnDrag && (
@@ -967,9 +1051,29 @@ const Game = ({ gameId, initialState }) => {
           aiAnim.type === 'kick' ? (
             <img src="/assets/bw-ball.svg" alt="ball-anim" className="relative z-30 w-1/2 h-1/2 drop-shadow pointer-events-none" />
           ) : (
-            <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
-              <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
-            </div>
+            /* For AI animations, check if the moving piece is a goalkeeper in their area */
+            (() => {
+              const movingPiece = gameState?.players?.find(p =>
+                p.position.row === aiAnim.path[aiAnim.index]?.row &&
+                p.position.col === aiAnim.path[aiAnim.index]?.col
+              );
+              if (movingPiece?.isGoalkeeper && isGoalkeeperInArea(movingPiece)) {
+                return (
+                  <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
+                    <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[aiAnim.team] || '#FFF')} width="100%" height="100%" />
+                  </div>
+                );
+              }
+              // Use darker color for inactive goalkeepers
+              const chipColor = movingPiece?.isGoalkeeper
+                ? getInactiveGoalkeeperColor(TEAM_COLORS[aiAnim.team] || '#FFF')
+                : (TEAM_COLORS[aiAnim.team] || '#FFF');
+              return (
+                <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
+                  <ChipIcon color={chipColor} width="100%" height="100%" />
+                </div>
+              );
+            })()
           )
         )}
         {/* Ghost preview snapped to hovered cell while dragging */}
@@ -984,9 +1088,26 @@ const Game = ({ gameId, initialState }) => {
             </div>
           ) : (
             <div className={`absolute inset-0 flex items-center justify-center pointer-events-none z-40 ${hoverIsLegal ? 'opacity-90' : 'opacity-60'}`}>
-              <div className={`w-3/4 h-3/4 transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
-                <ChipIcon color={TEAM_COLORS[dragTeam] || '#FFF'} width="100%" height="100%" />
-              </div>
+              {/* Check if dragged piece is a goalkeeper in their area */}
+              {(() => {
+                const draggedPiece = selectedPiece && !selectedPiece.isBall ? selectedPiece : null;
+                if (draggedPiece?.isGoalkeeper && isGoalkeeperInArea(draggedPiece)) {
+                  return (
+                    <div className={`w-full h-full transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
+                      <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[dragTeam] || '#FFF')} width="100%" height="100%" />
+                    </div>
+                  );
+                }
+                // Use darker color for inactive goalkeepers
+                const chipColor = draggedPiece?.isGoalkeeper
+                  ? getInactiveGoalkeeperColor(TEAM_COLORS[dragTeam] || '#FFF')
+                  : (TEAM_COLORS[dragTeam] || '#FFF');
+                return (
+                  <div className={`w-3/4 h-3/4 transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
+                    <ChipIcon color={chipColor} width="100%" height="100%" />
+                  </div>
+                );
+              })()}
             </div>
           )
         )}
@@ -1155,10 +1276,10 @@ const Game = ({ gameId, initialState }) => {
 
       {/* Modals */}
       {activeModal === 'home' && (
-        <Modal title={t('homeConfirmTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+        <Modal title={t('homeConfirmTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('cancel')}</button>,
-            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} navigate('/'); }}>{t('leave')}</button>
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30 hover:bg-white/40 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('cancel')}</button>,
+            <button key="leave" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); navigate('/'); }}>{t('leave')}</button>
           ]}
         >
           <p>{t('homeConfirmText')}</p>
@@ -1166,42 +1287,42 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'pause' && (
-        <Modal title="Pausa" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+        <Modal title={t('pauseTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="resume" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Continuar</button>
+            <button key="resume" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('continueGame')}</button>
           ]}
         >
-          <p className="text-mg-brown">La partida esta pausada. Cerra para continuar jugando.</p>
+          <p className="text-mg-brown">{t('pauseBody')}</p>
         </Modal>
       )}
 
       {activeModal === 'restart' && (
-        <Modal title="??Reiniciar partida?" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+        <Modal title={t('restartTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="cancel" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Cancelar</button>,
-            <button key="restart" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); restartGame(); }}>Reiniciar</button>
+            <button key="cancel" className="px-4 py-2 rounded bg-white/30 hover:bg-white/40 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('cancel')}</button>,
+            <button key="restart" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); restartGame(); }}>{t('restart')}</button>
           ]}
         >
-          <p className="text-mg-brown">Esto reiniciará el tablero y el marcador. ¿Estás seguro?</p>
+          <p className="text-mg-brown">{t('restartBody')}</p>
         </Modal>
       )}
 
       {activeModal === 'help' && (
-        <Modal title="Libro de Reglas" onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }} contentClassName="max-w-5xl w-[95vw] max-h-[90vh]"
+        <Modal title={t('ruleBook')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }} contentClassName="max-w-5xl w-[95vw] max-h-[90vh]"
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>Cerrar</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('close')}</button>
           ]}
         >
-          <div className="w-full h-[70vh] overflow-hidden">
-            <iframe src="/how-to-play?embed=1" title="Libro de Reglas" className="w-full h-full rounded" />
+          <div className="w-full h-[60vh] sm:h-[70vh] overflow-hidden">
+            <iframe src="/how-to-play?embed=1" title={t('ruleBook')} className="w-full h-full rounded" />
           </div>
         </Modal>
       )}
 
       {activeModal === 'about' && (
-        <Modal title={t('about')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+        <Modal title={t('about')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('close')}</button>
+            <button key="close" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('close')}</button>
           ]}
         >
           <p>{t('researchBlurb')}</p>
@@ -1209,9 +1330,9 @@ const Game = ({ gameId, initialState }) => {
       )}
 
       {activeModal === 'config' && (
-        <Modal title={t('configTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+        <Modal title={t('configTitle')} onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('save')}</button>
+            <button key="save" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>{t('save')}</button>
           ]}
         >
           <div className="space-y-6">
@@ -1239,21 +1360,16 @@ const Game = ({ gameId, initialState }) => {
             <div>
               <div className="font-semibold mb-1">{t('maxTurns')}</div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" defaultChecked={(function(){ try { return !!JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurnsEnabled } catch(e){ return false } })()} onChange={(e) => {
-                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
-                    saved.maxTurnsEnabled = e.target.checked; sessionStorage.setItem('gameSession', JSON.stringify(saved));
-                  }} />
+                <label className="flex items-center gap-2 opacity-50 cursor-not-allowed" title={t('cannotChangeInGame') || 'Cannot change during active game'}>
+                  <input type="checkbox" disabled checked={(function(){ try { return !!JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurnsEnabled } catch(e){ return false } })()} />
                   <span>{t('enabled')}</span>
                 </label>
-                <input type="number" min={10} max={300} step={5}
-                  defaultValue={(function(){ try { return JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurns || 60 } catch(e){ return 60 } })()}
-                  className="w-28 bg-white/40 px-2 py-1 rounded border border-mg-cream/20"
-                  onChange={(e) => {
-                    const saved = JSON.parse(sessionStorage.getItem('gameSession') || '{}');
-                    saved.maxTurns = parseInt(e.target.value || '0'); sessionStorage.setItem('gameSession', JSON.stringify(saved));
-                  }} />
+                <input type="number" min={10} max={300} step={5} disabled
+                  value={(function(){ try { return JSON.parse(sessionStorage.getItem('gameSession')||'{}').maxTurns || 60 } catch(e){ return 60 } })()}
+                  className="w-28 bg-white/40 px-2 py-1 rounded border border-mg-cream/20 opacity-50 cursor-not-allowed"
+                  title={t('cannotChangeInGame') || 'Cannot change during active game'} />
               </div>
+              <div className="text-xs text-mg-brown/70 mt-1">{t('maxTurnsLocked') || 'This setting is locked during gameplay. Change it in Game Config before starting a new game.'}</div>
             </div>
           </div>
         </Modal>
@@ -1261,11 +1377,15 @@ const Game = ({ gameId, initialState }) => {
       {/* Goal Modal */}
       {activeModal === 'goal' && lastGoalTeam && (
         <Modal
-          title={lastGoalTeam === 'LEFT' ? '¡Gol del equipo LEFT!' : '¡Gol del equipo RIGHT!'}
-          onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+          title={
+            <div className="flex items-center gap-2">
+              {t('goalTitle')} <TeamColorIndicator team={lastGoalTeam} />
+            </div>
+          }
+          onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="continue" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}>
-              Continuar
+            <button key="continue" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}>
+              {t('continueGame')}
             </button>
           ]}
         >
@@ -1273,9 +1393,9 @@ const Game = ({ gameId, initialState }) => {
             {(function() {
               if (MODE === 'pve') {
                 const humanScored = lastGoalTeam === HUMAN_TEAM;
-                return humanScored ? '¡Anotaste un gol! ¡Bien jugado!' : '¡El rival anotó! ¡A remontar!';
+                return humanScored ? t('youScored') : t('opponentScored');
               }
-              return 'Se ha anotado un gol. La partida continúa.';
+              return t('goalMessage');
             })()}
           </p>
         </Modal>
@@ -1284,20 +1404,24 @@ const Game = ({ gameId, initialState }) => {
       {activeModal === 'gameover' && (
         <Modal
           title={(function() {
-            if (!winner) return 'Partida terminada';
-            if (winner === 'DRAW') return '¡Empate!';
+            if (!winner) return t('gameOverTitle');
+            if (winner === 'DRAW') return t('draw');
             if (MODE === 'pve') {
-              return winner === HUMAN_TEAM ? '¡Felicidades! ¡Ganaste!' : '¡Qué lástima! ¡Perdiste!';
+              return winner === HUMAN_TEAM ? t('congratsWin') : t('youLost');
             }
-            // PvP: show winning side
-            return winner === 'LEFT' ? '¡Gana LEFT!' : '¡Gana RIGHT!';
+            // PvP: show winning side with colored indicator
+            return (
+              <div className="flex items-center gap-2">
+                {winner === 'LEFT' ? t('leftWins') : t('rightWins')} <TeamColorIndicator team={winner} />
+              </div>
+            );
           })()}
-          onClose={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); }}
+          onClose={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); }}
           actions={[
-            <button key="again" className="px-4 py-2 rounded bg-mg-brown text-mg-cream" onClick={() => { try { playSfx('onSideToolClick'); } catch {} setActiveModal(null); restartGame(); }}>
-              Jugar otra vez
+            <button key="again" className="px-4 py-2 rounded bg-mg-brown text-mg-cream hover:bg-mg-brown/90 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); setActiveModal(null); restartGame(); }}>
+              {t('playAgain')}
             </button>,
-            <button key="exit" className="px-4 py-2 rounded bg-white/30" onClick={() => { try { playSfx('onSideToolClick'); } catch {} navigate('/'); }}>Salir</button>
+            <button key="exit" className="px-4 py-2 rounded bg-white/30 hover:bg-white/40 transition-colors w-full sm:w-auto" onClick={() => { try { playSfx('onSideToolClick'); } catch {} stopAllSounds(); navigate('/'); }}>{t('exit')}</button>
           ]}
         >
           <p className="text-mg-brown">
@@ -1312,9 +1436,9 @@ const Game = ({ gameId, initialState }) => {
                 return drawByTurns ? t('drawByTurnsExplain') : t('drawExplain');
               }
               if (MODE === 'pve') {
-                return winner === HUMAN_TEAM ? '¡Gran partido! ¿Otra ronda?' : 'Revancha inmediata, ¿te animas?';
+                return winner === HUMAN_TEAM ? t('winMessage') : t('loseMessage');
               }
-              return 'La partida ha terminado. ¿Jugar otra vez?';
+              return t('gameOverMessage');
             })()}
           </p>
         </Modal>

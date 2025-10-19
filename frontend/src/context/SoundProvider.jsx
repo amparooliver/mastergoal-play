@@ -31,6 +31,9 @@ export function SoundProvider({ children }) {
     }
   });
 
+  // Track active audio elements to be able to stop them
+  const activeAudioRef = React.useRef([]);
+
   useEffect(() => {
     try { localStorage.setItem('soundEnabled', String(soundEnabled)); } catch {}
   }, [soundEnabled]);
@@ -49,7 +52,30 @@ export function SoundProvider({ children }) {
       if (!url) return;
       const audio = new Audio(url);
       audio.volume = 1.0;
+
+      // Track audio element
+      activeAudioRef.current.push(audio);
+
+      // Remove from tracking when ended
+      audio.addEventListener('ended', () => {
+        const index = activeAudioRef.current.indexOf(audio);
+        if (index > -1) activeAudioRef.current.splice(index, 1);
+      });
+
       audio.play().catch(() => {});
+    } catch {}
+  };
+
+  const stopAllSounds = () => {
+    try {
+      // Stop and remove all active audio elements
+      activeAudioRef.current.forEach(audio => {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {}
+      });
+      activeAudioRef.current = [];
     } catch {}
   };
 
@@ -66,6 +92,7 @@ export function SoundProvider({ children }) {
     toggleSound,
     toggleHaptics,
     playSfx,
+    stopAllSounds,
     vibrate,
   }), [soundEnabled, hapticsEnabled]);
 

@@ -88,6 +88,14 @@ def new_game():
             ai_agent = ai_manager.get_agent(level, difficulty)
             ai_color = 'RIGHT' if player_color == 'LEFT' else 'LEFT'
         
+        # Validate and store max_turns
+        max_turns_value = None
+        if max_turns_enabled and isinstance(max_turns, (int, float)):
+            max_turns_int = int(max_turns)
+            # Only use max_turns if it's a positive value
+            if max_turns_int > 0:
+                max_turns_value = max_turns_int
+
         # Store game session
         active_games[game_id] = {
             'game': game,
@@ -99,8 +107,8 @@ def new_game():
             'timer_enabled': timer_enabled,
             'timer_minutes': timer_minutes,
             'mode': mode,
-            'max_turns_enabled': bool(max_turns_enabled),
-            'max_turns': int(max_turns) if (max_turns_enabled and isinstance(max_turns, (int, float))) else None,
+            'max_turns_enabled': bool(max_turns_enabled) and max_turns_value is not None,
+            'max_turns': max_turns_value,
             'win_goals': 2,  # default: play to 2 goals unless overridden in future
             'start_time': datetime.utcnow().isoformat(),
             'move_history': [],
@@ -135,10 +143,18 @@ def get_game_state(game_id):
         session = active_games[game_id]
         game = session['game']
 
+        # Check if game should end due to turn limit before AI moves
+        max_turns_enabled = session.get('max_turns_enabled', False)
+        max_turns = session.get('max_turns')
+        if max_turns_enabled and max_turns is not None and game.turn_count >= max_turns:
+            if session['status'] == 'active':
+                session['status'] = 'completed'
+                session['winner'] = 'DRAW'
+
         # If it's AI's turn when fetching state, let AI play now so the client sees the move
         last_ai_move_payload = None
         ai_moves = []
-        if session.get('mode', 'pve') == 'pve' and session.get('ai_agent') is not None and game.current_team == session.get('ai_color'):
+        if session['status'] == 'active' and session.get('mode', 'pve') == 'pve' and session.get('ai_agent') is not None and game.current_team == session.get('ai_color'):
             ai_agent = session['ai_agent']
             chain_limit = 10
             while game.current_team == session['ai_color'] and chain_limit > 0:
@@ -216,7 +232,24 @@ def make_move(game_id):
         if session.get('mode', 'pve') == 'pve':
             if game.current_team != session.get('player_color'):
                 return jsonify({'error': 'Not your turn'}), 400
-        
+
+        # Check if game has already ended due to turn limit BEFORE allowing move
+        win_goals = session.get('win_goals')
+        max_turns_enabled = session.get('max_turns_enabled', False)
+        max_turns = session.get('max_turns')
+
+        # Pre-check: if turn limit is enabled and already reached, end game immediately
+        if max_turns_enabled and max_turns is not None and game.turn_count >= max_turns:
+            session['status'] = 'completed'
+            session['winner'] = 'DRAW'
+            return jsonify({
+                'success': False,
+                'gameState': game_manager.get_game_state(game),
+                'gameEnded': True,
+                'winner': 'DRAW',
+                'error': 'Turn limit reached'
+            })
+
         # Execute player move
         # Snapshot pre-move for extra-turn detection and goal detection
         prev_team = game.current_team

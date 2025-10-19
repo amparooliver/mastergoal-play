@@ -4,7 +4,7 @@ from position import Position
 
 # Global constants
 NUM_GOALS = 2 #Number of goals to win
-NUM_TURNS = 60 #Number of turns to play before a draw
+NUM_TURNS = 10 #Number of turns to play before a draw
 
 class MastergoalGame:
     """Clase principal que maneja el estado del juego y las reglas."""
@@ -174,12 +174,35 @@ class MastergoalGame:
             if player.team == team and player.is_goalkeeper:
                 return player
         return None
+
+    def is_goalkeeper_active(self, player):
+        """
+        Verifica si un jugador marcado como arquero tiene habilidades de arquero activas.
+        El arquero solo tiene sus habilidades especiales cuando está en su área grande o chica.
+        Fuera de estas áreas, se comporta como un jugador normal.
+        """
+        if not player.is_goalkeeper:
+            return False
+
+        # El arquero solo tiene habilidades especiales dentro de su área grande o chica
+        in_big_area = self.is_in_big_area(player.position, player.team)
+        in_small_area = self.is_in_small_area(player.position, player.team)
+
+        return in_big_area or in_small_area
     
     def get_goalkeeper_arms(self, team):
-        """Devuelve las posiciones válidas de los brazos del arquero."""
+        """
+        Devuelve las posiciones válidas de los brazos del arquero.
+        Solo devuelve brazos si el arquero está en su área grande o chica.
+        """
         goalkeeper = self.get_goalkeeper(team)
-        if not goalkeeper or not self.is_in_big_area(goalkeeper.position, team):
-            return []  
+        if not goalkeeper:
+            return []
+
+        # El arquero solo tiene brazos si está activo (en su área)
+        if not self.is_goalkeeper_active(goalkeeper):
+            return []
+
         arms = []
         # Brazos horizontales del arquero
         left_arm = Position(goalkeeper.position.row, goalkeeper.position.col - 1)
@@ -232,35 +255,37 @@ class MastergoalGame:
                 
                 # LÓGICA ESPECIAL PARA ARQUERO EN NIVEL 3
                 if self.level == 3 and player.is_goalkeeper:
-                    # Si el arquero se mueve a una posición dentro de su área grande,
-                    # debe verificar que tenga espacio para al menos un brazo válido
+                    # El arquero tiene reglas especiales solo cuando se mueve DENTRO de su área
+                    # Si está fuera o se mueve fuera, actúa como jugador normal
+
+                    # Si se mueve A una posición dentro de su área grande
                     if self.is_in_big_area(new_position, player.team):
-                        # Verificar que en la nueva posición tenga espacio para sus brazos
+                        # Verificar que en la nueva posición tenga espacio para al menos un brazo válido
                         potential_left_arm = Position(new_position.row, new_position.col - 1)
                         potential_right_arm = Position(new_position.row, new_position.col + 1)
-                        
+
                         # Contar cuántos brazos válidos tendría en la nueva posición
                         valid_arms = 0
-                        
+
                         # Verificar brazo izquierdo (solo si está dentro del área grande)
-                        if (not self.is_out_of_bounds(potential_left_arm) and 
+                        if (not self.is_out_of_bounds(potential_left_arm) and
                             self.is_in_big_area(potential_left_arm, player.team) and
                             self.get_player_at(potential_left_arm) is None and
                             potential_left_arm != self.ball.position):
                             valid_arms += 1
-                        
+
                         # Verificar brazo derecho (solo si está dentro del área grande)
-                        if (not self.is_out_of_bounds(potential_right_arm) and 
+                        if (not self.is_out_of_bounds(potential_right_arm) and
                             self.is_in_big_area(potential_right_arm, player.team) and
                             self.get_player_at(potential_right_arm) is None and
                             potential_right_arm != self.ball.position):
                             valid_arms += 1
-                        
+
                         # El arquero necesita al menos un brazo válido para moverse dentro del área
                         if valid_arms == 0:
                             continue
-                    # Si se mueve fuera del área grande, se convierte en jugador normal
-                    # y no hay restricciones adicionales
+                    # Si se mueve fuera del área grande (o está fuera y se mueve),
+                    # se comporta como jugador normal y no hay restricciones adicionales
 
                 # Si el jugador está en estado neutral de la pelota, 
                 # solo puede moverse a posiciones que sigan siendo adyacentes a la pelota
@@ -331,28 +356,30 @@ class MastergoalGame:
                 # ⚽ SOLO en nivel 3: chequeo arquero y brazos
                 if self.level == 3:
                     goalkeeper_blocks = False
-                    # No pasar sobre cuerpo del arquero
+                    # No pasar sobre cuerpo del arquero (solo si está activo en su área)
                     for d in range(1, distance + 1):
                         pos = self.ball.position.position_in_direction(direction, d)
                         player_at_pos = self.get_player_at(pos)
-                        if player_at_pos and player_at_pos.is_goalkeeper:
+                        # El arquero solo bloquea si está activo (en su área)
+                        if player_at_pos and player_at_pos.is_goalkeeper and self.is_goalkeeper_active(player_at_pos):
                             goalkeeper_blocks = True
                             break
-                    
+
                     if goalkeeper_blocks:
-                        continue  # Pasa sobre arquero => no es válido
-                    
-                    # Chequeamos brazos del arquero
+                        continue  # Pasa sobre arquero activo => no es válido
+
+                    # Chequeamos brazos del arquero (solo si está activo)
                     opponent_team = self.RIGHT if self.current_team == self.LEFT else self.LEFT
                     opponent_gk = self.get_goalkeeper(opponent_team)
-                    if opponent_gk and self.is_in_big_area(opponent_gk.position, opponent_team):
+                    # get_goalkeeper_arms ya verifica si el arquero está activo
+                    if opponent_gk:
                         arms = self.get_goalkeeper_arms(opponent_team)
                         for d in range(1, distance + 1):
                             pos = self.ball.position.position_in_direction(direction, d)
                             if pos in arms:
                                 goalkeeper_blocks = True
                                 break
-                        
+
                         if goalkeeper_blocks:
                             continue  # Pasa sobre brazo => no es válido
 

@@ -104,6 +104,11 @@ class GameManager:
         If overrides are provided, they take precedence over the game's
         internal thresholds.
         """
+        # Check turn limit first (before goals) to ensure it's enforced
+        # This allows the game to end in a draw even if checking mid-game
+        if max_turns_enabled and max_turns is not None and game.turn_count >= max_turns:
+            return {'ended': True, 'winner': 'DRAW'}
+
         # Apply override goals if provided
         if win_goals is not None:
             if game.LEFT_goals >= win_goals:
@@ -111,18 +116,21 @@ class GameManager:
             if game.RIGHT_goals >= win_goals:
                 return {'ended': True, 'winner': 'RIGHT'}
 
-        # Apply override max turns if enabled
-        if max_turns_enabled and max_turns is not None and game.turn_count >= max_turns:
-            return {'ended': True, 'winner': 'DRAW'}
-
-        # Fall back to game's internal logic
+        # Fall back to game's internal logic for goal-based wins only
+        # Do NOT use the internal is_game_over() turn limit check, as it would
+        # override our max_turns_enabled setting
         result = game.is_game_over()
         if result == 1:
             return {'ended': True, 'winner': 'LEFT'}
         elif result == -1:
             return {'ended': True, 'winner': 'RIGHT'}
         elif result == 0.1:
-            return {'ended': True, 'winner': 'DRAW'}
+            # Only accept draw from internal logic if max_turns is enabled
+            # This prevents unwanted draws when max_turns feature is disabled
+            if max_turns_enabled:
+                return {'ended': True, 'winner': 'DRAW'}
+            else:
+                return {'ended': False, 'winner': None}
         else:
             return {'ended': False, 'winner': None}
     
