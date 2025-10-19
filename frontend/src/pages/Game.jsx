@@ -701,51 +701,6 @@ const Game = ({ gameId, initialState }) => {
     );
   };
 
-  // Helper function to check if goalkeeper is in their area
-  const isGoalkeeperInArea = (player) => {
-    if (!player || !player.isGoalkeeper) return false;
-
-    const row = player.position.row;
-    const col = player.position.col;
-
-    // LEFT team areas
-    if (player.team === 'LEFT') {
-      // Big area: rows 1-4, cols 1-9
-      const inBigArea = row >= 1 && row <= 4 && col >= 1 && col <= 9;
-      // Small area: rows 1-2, cols 2-8
-      const inSmallArea = row >= 1 && row <= 2 && col >= 2 && col <= 8;
-      return inBigArea || inSmallArea;
-    }
-
-    // RIGHT team areas
-    if (player.team === 'RIGHT') {
-      // Big area: rows 10-13, cols 1-9
-      const inBigArea = row >= 10 && row <= 13 && col >= 1 && col <= 9;
-      // Small area: rows 12-13, cols 2-8
-      const inSmallArea = row >= 12 && row <= 13 && col >= 2 && col <= 8;
-      return inBigArea || inSmallArea;
-    }
-
-    return false;
-  };
-
-  // Helper function to get a slightly darker/different tone for inactive goalkeepers
-  const getInactiveGoalkeeperColor = (teamColor) => {
-    // Convert hex to RGB, darken slightly, and add a border indicator
-    const hex = teamColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-
-    // Darken by reducing brightness by 15%
-    const darkenFactor = 0.85;
-    const newR = Math.round(r * darkenFactor);
-    const newG = Math.round(g * darkenFactor);
-    const newB = Math.round(b * darkenFactor);
-
-    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-  };
-
   const ScoreBoard = () => {
     const leftScore = gameState?.score?.LEFT ?? 0;
     const rightScore = gameState?.score?.RIGHT ?? 0;
@@ -1023,16 +978,16 @@ const Game = ({ gameId, initialState }) => {
           </>
         )}
         {player && !(hideFinalDuringAnim || hideSequenceEnd) && !hideStaticPieceOnDrag && (
-          player.isGoalkeeper && isGoalkeeperInArea(player) ? (
-            // Goalkeeper with arms - larger and can overflow, with distinct color
+          player.isGoalkeeper ? (
+            // Goalkeeper - always shows with arms and distinct color, regardless of position
             <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
               <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[player.team])} width="100%" height="100%" />
             </div>
           ) : (
-            // Regular piece or inactive goalkeeper
+            // Regular piece
             <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
               <ChipIcon
-                color={player.isGoalkeeper ? getInactiveGoalkeeperColor(TEAM_COLORS[player.team]) : TEAM_COLORS[player.team]}
+                color={TEAM_COLORS[player.team]}
                 width="100%"
                 height="100%"
               />
@@ -1057,20 +1012,18 @@ const Game = ({ gameId, initialState }) => {
                 p.position.row === aiAnim.path[aiAnim.index]?.row &&
                 p.position.col === aiAnim.path[aiAnim.index]?.col
               );
-              if (movingPiece?.isGoalkeeper && isGoalkeeperInArea(movingPiece)) {
+              if (movingPiece?.isGoalkeeper) {
+                // Goalkeeper - always shows with arms and distinct color, regardless of position
                 return (
                   <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
                     <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[aiAnim.team] || '#FFF')} width="100%" height="100%" />
                   </div>
                 );
               }
-              // Use darker color for inactive goalkeepers
-              const chipColor = movingPiece?.isGoalkeeper
-                ? getInactiveGoalkeeperColor(TEAM_COLORS[aiAnim.team] || '#FFF')
-                : (TEAM_COLORS[aiAnim.team] || '#FFF');
+              // Regular piece
               return (
                 <div className="relative z-20 pointer-events-none w-3/4 h-3/4 flex items-center justify-center">
-                  <ChipIcon color={chipColor} width="100%" height="100%" />
+                  <ChipIcon color={TEAM_COLORS[aiAnim.team] || '#FFF'} width="100%" height="100%" />
                 </div>
               );
             })()
@@ -1088,23 +1041,21 @@ const Game = ({ gameId, initialState }) => {
             </div>
           ) : (
             <div className={`absolute inset-0 flex items-center justify-center pointer-events-none z-40 ${hoverIsLegal ? 'opacity-90' : 'opacity-60'}`}>
-              {/* Check if dragged piece is a goalkeeper in their area */}
+              {/* Check if dragged piece is a goalkeeper */}
               {(() => {
                 const draggedPiece = selectedPiece && !selectedPiece.isBall ? selectedPiece : null;
-                if (draggedPiece?.isGoalkeeper && isGoalkeeperInArea(draggedPiece)) {
+                if (draggedPiece?.isGoalkeeper) {
+                  // Goalkeeper - always shows with arms and distinct color, regardless of position
                   return (
                     <div className={`w-full h-full transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
                       <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[dragTeam] || '#FFF')} width="100%" height="100%" />
                     </div>
                   );
                 }
-                // Use darker color for inactive goalkeepers
-                const chipColor = draggedPiece?.isGoalkeeper
-                  ? getInactiveGoalkeeperColor(TEAM_COLORS[dragTeam] || '#FFF')
-                  : (TEAM_COLORS[dragTeam] || '#FFF');
+                // Regular piece
                 return (
                   <div className={`w-3/4 h-3/4 transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
-                    <ChipIcon color={chipColor} width="100%" height="100%" />
+                    <ChipIcon color={TEAM_COLORS[dragTeam] || '#FFF'} width="100%" height="100%" />
                   </div>
                 );
               })()}
