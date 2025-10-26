@@ -759,35 +759,60 @@ const Game = ({ gameId, initialState }) => {
   };
 
   // Horizontal toolbar for small/vertical screens
-  const TopToolbar = () => (
-    <div className="flex items-center justify-center gap-5 text-mg-cream">
-      <button onClick={() => setActiveModal('home')} title="Inicio" className="hover:opacity-90">
-        <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-6 h-6" />
-      </button>
-      <button onClick={() => setActiveModal('help')} title="Ayuda" className="hover:opacity-90">?</button>
-      <button onClick={() => setActiveModal('config')} title="Configuracion" className="hover:opacity-90">
-        <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-6 h-6" />
-      </button>
-      <button onClick={() => setActiveModal('about')} title="Acerca de" className="hover:opacity-90">
-        <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-6 h-6" />
-      </button>
-    </div>
-  );
+  const TopToolbar = () => {
+    const { soundEnabled, toggleSound } = useSound();
+    const sideClick = (fn) => () => { try { playSfx('onSideToolClick'); } catch {} fn(); };
+    return (
+      <div className="flex items-center justify-center gap-5 text-mg-cream">
+        <button onClick={sideClick(() => setActiveModal('home'))} title="Inicio" className="hover:opacity-90">
+          <img src="/assets/HomeVerticalMenu.svg" alt="Home" className="w-6 h-6" />
+        </button>
+        <button onClick={sideClick(() => setActiveModal('pause'))} title="Pausa" className="hover:opacity-90">
+          <img src="/assets/PauseVerticalMenu.svg" alt="Pause" className="w-6 h-6" />
+        </button>
+        <button onClick={sideClick(() => setActiveModal('restart'))} title="Reiniciar" className="hover:opacity-90">
+          <img src="/assets/RestartVerticalMenu.svg" alt="Restart" className="w-6 h-6" />
+        </button>
+        <button onClick={sideClick(() => setActiveModal('help'))} title="Ayuda" className="hover:opacity-90">?</button>
+        <button onClick={() => { try { playSfx('onSideToolClick'); } catch {} toggleSound(); }} title={soundEnabled ? 'Sonido activado' : 'Sonido desactivado'} className="hover:opacity-90">
+          <img src={soundEnabled ? '/assets/SoundOn.svg' : '/assets/SoundOff.svg'} alt={soundEnabled ? 'Sound On' : 'Sound Off'} className="w-6 h-6" />
+        </button>
+        <button onClick={sideClick(() => setActiveModal('config'))} title="Configuracion" className="hover:opacity-90">
+          <img src="/assets/SettingsVerticalMenu.svg" alt="Settings" className="w-6 h-6" />
+        </button>
+        <button onClick={sideClick(() => setActiveModal('about'))} title="Acerca de" className="hover:opacity-90">
+          <img src="/assets/AboutVerticalMenu.svg" alt="About" className="w-6 h-6" />
+        </button>
+      </div>
+    );
+  };
 
-  const TimerWidget = () => {
+    const TimerWidget = () => {
     if (!timerEnabled) return null;
 
-    // Visual warning when time is running low
     const isLowTime = secondsLeft <= 5;
     const isCriticalTime = secondsLeft <= 3;
 
-    return (
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-160px]">
-        <div className={`w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg transition-all duration-300 ${isCriticalTime ? 'ring-2 ring-red-500 animate-pulse' : isLowTime ? 'ring-2 ring-yellow-500' : ''}`}>
-          <div className="text-3xl">⏱</div>
-          <div className={`text-sm font-semibold ${isCriticalTime ? 'text-red-400' : isLowTime ? 'text-yellow-400' : ''}`}>
-            {secondsLeft}{t('secondsLeft')}
+    if (isLandscape) {
+      return (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 mr-[-160px]">
+          <div className={`w-28 rounded-2xl bg-mg-brown/95 text-mg-cream flex flex-col items-center py-4 gap-2 shadow-lg transition-all duration-300 ${isCriticalTime ? 'ring-2 ring-red-500 animate-pulse' : isLowTime ? 'ring-2 ring-yellow-500' : ''}`}>
+            <div className="text-3xl">⏱️</div>
+            <div className={`text-sm font-semibold ${isCriticalTime ? 'text-red-400' : isLowTime ? 'text-yellow-400' : ''}`}>
+              {secondsLeft}{t('secondsLeft')}
+            </div>
           </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-3 flex items-center justify-center">
+        <div className={`inline-flex items-center gap-2 rounded-full bg-mg-brown/90 text-mg-cream px-3 py-1.5 text-sm font-semibold shadow ${isCriticalTime ? 'ring-2 ring-red-500 animate-pulse' : isLowTime ? 'ring-2 ring-yellow-500' : ''}`}>
+          <span className="text-base">⏱️</span>
+          <span>
+            {secondsLeft}{t('secondsLeft')}
+          </span>
         </div>
       </div>
     );
@@ -980,7 +1005,7 @@ const Game = ({ gameId, initialState }) => {
         {player && !(hideFinalDuringAnim || hideSequenceEnd) && !hideStaticPieceOnDrag && (
           player.isGoalkeeper ? (
             // Goalkeeper - always shows with arms and distinct color, regardless of position
-            <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
+            <div className={`relative z-20 pointer-events-none w-full h-full flex items-center justify-center ${!isLandscape ? 'rotate-90' : ''}`}>
               <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[player.team])} width="100%" height="100%" />
             </div>
           ) : (
@@ -1015,7 +1040,7 @@ const Game = ({ gameId, initialState }) => {
               if (movingPiece?.isGoalkeeper) {
                 // Goalkeeper - always shows with arms and distinct color, regardless of position
                 return (
-                  <div className="relative z-20 pointer-events-none w-full h-full flex items-center justify-center">
+                  <div className={`relative z-20 pointer-events-none w-full h-full flex items-center justify-center ${!isLandscape ? 'rotate-90' : ''}`}>
                     <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[aiAnim.team] || '#FFF')} width="100%" height="100%" />
                   </div>
                 );
@@ -1047,7 +1072,7 @@ const Game = ({ gameId, initialState }) => {
                 if (draggedPiece?.isGoalkeeper) {
                   // Goalkeeper - always shows with arms and distinct color, regardless of position
                   return (
-                    <div className={`w-full h-full transition-transform duration-150 ease-out ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
+                    <div className={`w-full h-full transition-transform duration-150 ease-out ${!isLandscape ? 'rotate-90' : ''} ${hoverIsLegal ? 'scale-110' : 'scale-95'}`}>
                       <GoalkeeperIcon color={getGoalkeeperColor(TEAM_COLORS[dragTeam] || '#FFF')} width="100%" height="100%" />
                     </div>
                   );
@@ -1091,11 +1116,7 @@ const Game = ({ gameId, initialState }) => {
         <div className="relative flex items-start justify-center">
           {isLandscape ? <SideToolbar /> : null}
           <div className="relative bg-mg-brown rounded-3xl pt-12 pb-6 px-6 shadow-2xl">
-            {!isLandscape && (
-              <div className="absolute top-2 left-0 right-0 flex items-center justify-center">
-                <TopToolbar />
-              </div>
-            )}
+            {/* Portrait toolbar will render below the board instead of absolute top */}
             <ScoreBoard />
             {/* Enhanced responsive notice banner */}
             {notice && (
@@ -1194,6 +1215,11 @@ const Game = ({ gameId, initialState }) => {
                 );
               })()}
             </div>
+            {!isLandscape && (
+              <div className="mt-4 flex items-center justify-center">
+                <TopToolbar />
+              </div>
+            )}
             <div className="mt-3 text-center text-mg-cream">
               {(() => {
                 // In PvE we often receive a state where AI already played (backend chains moves),
@@ -1408,6 +1434,7 @@ const Game = ({ gameId, initialState }) => {
 };
 
 export default Game;
+
 
 
 
