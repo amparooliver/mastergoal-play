@@ -628,6 +628,12 @@ const Game = ({ gameId, initialState }) => {
       }
       const data = await response.json();
       if (response.ok && data.success) {
+        // Determine AI moves early and set animation guard before updating state
+        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
+        if (aiMoves && aiMoves.length) {
+          // Ensure the AI-turn effect doesn't fetch and re-trigger animations
+          setIsAnimatingAi(true);
+        }
         try { playSfx('onMove'); } catch {}
         setGameState(data.gameState);
         try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: !!data.gameEnded }); } catch {}
@@ -636,7 +642,6 @@ const Game = ({ gameId, initialState }) => {
 
         // Increment move count to trigger timer reset
         setMoveCount(prev => prev + 1);
-        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
         // If team kept the turn after a kick to a special tile, surface extra-turn notice
         try {
           const kicked = move.type === 'kick';
