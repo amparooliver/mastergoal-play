@@ -16,9 +16,14 @@ const Game = ({ gameId, initialState }) => {
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null); // 'LEFT' | 'RIGHT' | 'DRAW' | null
   const [isAnimatingAi, setIsAnimatingAi] = useState(false);
+  // Mirror isAnimatingAi in a ref for immediate reads within async flows
+  const isAnimatingAiRef = useRef(false);
+  useEffect(() => { isAnimatingAiRef.current = isAnimatingAi; }, [isAnimatingAi]);
   const aiAnimTimer = useRef(null);
   const [aiAnim, setAiAnim] = useState({ active: false, path: [], index: 0, type: null, team: null });
   const aiSequenceEnd = useRef(null);
+  // Track last AI sequence signature to avoid duplicate animations
+  const aiSeqSigRef = useRef(null);
   const lastPlayedRef = useRef({ goal: 0, gameover: 0 });
   const prevModalRef = useRef(null);
   // AI sequence helpers for robust animation ordering
@@ -281,9 +286,11 @@ const Game = ({ gameId, initialState }) => {
       }
       const data = await response.json();
       if (data.success) {
+        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
+        // Guard early to prevent AI-turn effect from refetching and duplicating animations
+        if (aiMoves && aiMoves.length) setIsAnimatingAi(true);
         setGameState(data.gameState);
         try { maybeShowGoalPopup(data.gameState?.score, { gameEnded: false }); } catch {}
-        const aiMoves = data.aiMoves || (data.lastAiMove ? [data.lastAiMove] : []);
         if (aiMoves.length) animateAiSequence(aiMoves);
         // If backend marks session completed on AI turn, infer winner and show modal
         if (data.status === 'completed' && !gameEnded) {
@@ -381,6 +388,14 @@ const Game = ({ gameId, initialState }) => {
 
   const animateAiSequence = (moves) => {
     if (!moves || moves.length === 0) return;
+    // Dedupe identical sequences and guard against concurrent starts
+    const sig = movesSignature(moves);
+    if (sig && aiSeqSigRef.current === sig && (isAnimatingAiRef.current || aiAnim.active)) {
+      return;
+    }
+    aiSeqSigRef.current = sig;
+    // Mark as animating immediately to avoid race with effects that fetch/animate
+    setIsAnimatingAi(true);
     setLastAiMove(moves[moves.length - 1]);
     // Track whole sequence and kick boundaries
     const firstKickIndex = moves.findIndex(m => (m.moveType || m.type) === 'kick');
@@ -1444,3 +1459,16 @@ export default Game;
 
 
 
+  // Build a stable signature for a list of AI moves to dedupe sequences
+  const movesSignature = (moves) => {
+    try {
+      return (moves || []).map(m => {
+        const t = m.moveType || m.type;
+        const f = m.from ? `${m.from.row},${m.from.col}` : '?';
+        const to = m.to ? `${m.to.row},${m.to.col}` : '?';
+        return `${t}:${f}->${to}`;
+      }).join('|');
+    } catch {
+      return null;
+    }
+  };
