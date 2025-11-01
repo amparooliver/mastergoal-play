@@ -24,6 +24,8 @@ const Game = ({ gameId, initialState }) => {
   const aiSequenceEnd = useRef(null);
   // Track last AI sequence signature to avoid duplicate animations
   const aiSeqSigRef = useRef(null);
+  // Track the most recent final-move signature to avoid replaying the trailing kick
+  const aiRecentLastSigRef = useRef({ sig: null, ts: 0 });
   const lastPlayedRef = useRef({ goal: 0, gameover: 0 });
   const prevModalRef = useRef(null);
   // AI sequence helpers for robust animation ordering
@@ -393,6 +395,19 @@ const Game = ({ gameId, initialState }) => {
     if (sig && aiSeqSigRef.current === sig && (isAnimatingAiRef.current || aiAnim.active)) {
       return;
     }
+    // Dedupe trailing kick replay: if the final move matches the most recent
+    // final move within a short window, skip to avoid double-playing the kick
+    const lastSig = lastMoveSignature(moves);
+    const now = Date.now();
+    if (
+      lastSig &&
+      aiRecentLastSigRef.current &&
+      aiRecentLastSigRef.current.sig === lastSig &&
+      (now - (aiRecentLastSigRef.current.ts || 0)) < 4000
+    ) {
+      return;
+    }
+    aiRecentLastSigRef.current = { sig: lastSig, ts: now };
     aiSeqSigRef.current = sig;
     // Mark as animating immediately to avoid race with effects that fetch/animate
     setIsAnimatingAi(true);
@@ -1468,6 +1483,20 @@ export default Game;
         const to = m.to ? `${m.to.row},${m.to.col}` : '?';
         return `${t}:${f}->${to}`;
       }).join('|');
+    } catch {
+      return null;
+    }
+  };
+
+  // Build a signature for only the last move in a sequence
+  const lastMoveSignature = (moves) => {
+    try {
+      if (!moves || !moves.length) return null;
+      const m = moves[moves.length - 1];
+      const t = m.moveType || m.type;
+      const f = m.from ? `${m.from.row},${m.from.col}` : '?';
+      const to = m.to ? `${m.to.row},${m.to.col}` : '?';
+      return `${t}:${f}->${to}`;
     } catch {
       return null;
     }
